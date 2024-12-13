@@ -1,11 +1,9 @@
+<!DOCTYPE html>
 <html lang="en" dir="ltr">
-
 <head>
   <meta charset="utf-8">
   <title>ORLANDO FC</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
-  <!-- Font Awesome Link for Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
   <style>
   * {
@@ -15,64 +13,46 @@
     list-style: none;
     box-sizing: border-box;
   }
-  .photo{
-    padding:250px 50%;
-    background-image: url('players.jpg');
-    background-size: cover;
-    position: absolute;
-    top:100px;
-    border-radius: 5px;
-    overflow: visible;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-
-  }
   body {
     font-family: "Montserrat", sans-serif;
     background: white;
   }
-  
   nav {
     background: #c90000;
     height: 80px;
     width: 100%;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
   }
-  
   label.logo {
     color: white;
-    font-size: 25px;
+    font-size: 2rem; /* Changed from px to rem for scalability */
     line-height: 80px;
-    padding: 0 100px;
+    padding: 0 2rem; /* Changed from px to rem for scalability */
     font-weight: bold;
   }
-  
   nav ul {
     float: right;
     margin-right: 20px;
   }
-  
   nav ul li {
     display: inline-block;
     line-height: 80px;
     margin: 0 5px;
   }
-  
   nav ul li a {
     color: white;
-    font-size: 17px;
-    padding: 7px 13px;
+    font-size: 1rem; /* Changed from px to rem for scalability */
+    padding: 0.5rem 1rem; /* Changed from px to rem for scalability */
     border-radius: 3px;
     text-transform: uppercase;
   }
-  
   a.active,
   a:hover {
     background: #1b9bff;
     transition: .5s;
   }
-  
   .checkbtn {
-    font-size: 22px;
+    font-size: 1.4rem; /* Changed from px to rem for scalability */
     color: white;
     float: right;
     line-height: 80px;
@@ -80,33 +60,24 @@
     cursor: pointer;
     display: none;
   }
-  
   #check {
     display: none;
   }
-  
   @media (max-width: 1050px) {
     label.logo {
-      padding-left: 30px;
+      padding-left: 1rem; /* Changed from px to rem for scalability */
     }
-  
     nav ul li a {
-      font-size: 16px;
+      font-size: 0.9rem; /* Changed from px to rem for scalability */
     }
   }
-  
-  /* Responsive media query code for small screen */
   @media (max-width: 890px) {
     .checkbtn {
       display: block;
     }
-  
     label.logo {
-      font-size: 22px;
-      
+      font-size: 1.4rem; /* Changed from px to rem for scalability */
     }
-    
-  
     ul {
       position: fixed;
       width: 100%;
@@ -116,114 +87,111 @@
       left: -100%;
       text-align: center;
       transition: all .5s;
-      position: absolute;
       z-index: 1000;
     }
-  
     nav ul li {
       display: block;
       margin: 50px 0;
       line-height: 30px;
     }
-  
     nav ul li a {
-      font-size: 20px;
+      font-size: 1.4rem; /* Changed from px to rem for scalability */
     }
-  
     a:hover,
     a.active {
       background: none;
       color: #006eff;
     }
-  
     #check:checked~ul {
       left: 0;
     }
   }
-  
   section {
     background: url("https://i.imgur.com/p9F2RSO.jpeg") no-repeat;
     background-size: cover;
     height: calc(100vh - 80px);
   }
-  .orlando{
+  .orlando {
     width: 75px;
     border-radius: 50%;
     position: absolute;
     top: 3px;
     left: 50%;
+    transform: translateX(-50%);
     background-color: white;
   }
-  .role{
+  .role {
     position: absolute;
     top: 20px;
     left: 5%;
     color: white;
-    font-size: 100px; 
+    font-size: 3rem; /* Changed from px to rem for scalability */
   }
-  .last{
-    padding: 350px 250px;
+  .photo {
+    padding: 5rem 10%; /* Changed from px to rem and % for scalability */
+    background-image: url('players.jpg');
+    background-size: cover;
+    position: relative; /* Changed from absolute to relative for better positioning */
+    top: 100px;
+    border-radius: 5px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  }
+  .last {
+    padding: 5rem 10%; /* Changed from px to rem and % for scalability */
     background-image: url('https://i.imgur.com/X8JJ2Kz.jpeg');
     background-size: cover;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    position: absolute;
-    top: 600px;
-    left: 10%;
-    margin-top: 50px;
+    position: relative; /* Changed from absolute to relative for better positioning */
+    top: 100px; /* Adjusted for consistent spacing */
     border-radius: 5px;
-
+    margin-top: 50px;
   }
-  .content{
+  .content {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
   }
-  .match{
+  .match {
     position: absolute;
-    top:30px;
+    top: 30px;
     left: 60px;
-    color: rgb(255, 255, 255);
-    font-size: 30px;
-
+    color: white;
+    font-size: 1.5rem; /* Changed from px to rem for scalability */
   }
-
+  @media (max-width: 768px) {
+    .role {
+      font-size: 2rem; /* Adjust for smaller screens */
+    }
+    .match {
+      font-size: 1.2rem; /* Adjust for smaller screens */
+      left: 10px;
+    }
+    .photo, .last {
+      padding: 3rem 5%; /* Adjust padding for smaller screens */
+    }
+  }
   </style>
 </head>
-
 <body>
   <nav>
-    <!-- Checkbox for toggling menu -->
     <input type="checkbox" id="check">
-
-    <!-- Menu icon -->
-    <label for="check" class="checkbtn">
-      <i class="fas fa-bars"></i>
-    </label>
-
-    <!-- Site logo -->
+    <label for="check" class="checkbtn"><i class="fas fa-bars"></i></label>
     <label class="logo">ORLANDO FC</label>
-    
     <img src="https://i.imgur.com/qarYPsB.jpeg" class="orlando">
-  
-
-    <!-- Navigation links -->
     <ul>
       <li><a class="active" href="#">HOME</a></li>
       <li><a href="website2.html">PLAYERS</a></li>
       <li><a href="website3.html">TEAM</a></li>
-      <li><a href="website5.html">MEDIA </a></li>
+      <li><a href="website5.html">MEDIA</a></li>
       <li><a href="website4.html">ABOUT US</a></li>
     </ul>
   </nav>
   <div class="photo">
     <h3 class="role">LIVE FOR THE GAME</h3>
- </div>
- <div class="last">
+  </div>
+  <div class="last">
     <h5 class="match"> TEAM KIT </h5>
- </div>
-
-  <!-- Section for image -->
+  </div>
   <section></section>
 </body>
-
 </html>
