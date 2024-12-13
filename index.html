@@ -1,197 +1,195 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
+
 <head>
   <meta charset="utf-8">
-  <title>ORLANDO FC</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ORLANDO FC</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
   <style>
-  * {
-    padding: 0;
-    margin: 0;
-    text-decoration: none;
-    list-style: none;
-    box-sizing: border-box;
-  }
-  body {
-    font-family: "Montserrat", sans-serif;
-    background: white;
-  }
-  nav {
-    background: #c90000;
-    height: 80px;
-    width: 100%;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-  }
-  label.logo {
-    color: white;
-    font-size: 2rem; /* Changed from px to rem for scalability */
-    line-height: 80px;
-    padding: 0 2rem; /* Changed from px to rem for scalability */
-    font-weight: bold;
-  }
-  nav ul {
-    float: right;
-    margin-right: 20px;
-  }
-  nav ul li {
-    display: inline-block;
-    line-height: 80px;
-    margin: 0 5px;
-  }
-  nav ul li a {
-    color: white;
-    font-size: 1rem; /* Changed from px to rem for scalability */
-    padding: 0.5rem 1rem; /* Changed from px to rem for scalability */
-    border-radius: 3px;
-    text-transform: uppercase;
-  }
-  a.active,
-  a:hover {
-    background: #1b9bff;
-    transition: .5s;
-  }
-  .checkbtn {
-    font-size: 1.4rem; /* Changed from px to rem for scalability */
-    color: white;
-    float: right;
-    line-height: 80px;
-    margin-right: 30px;
-    cursor: pointer;
-    display: none;
-  }
-  #check {
-    display: none;
-  }
-  @media (max-width: 1050px) {
-    label.logo {
-      padding-left: 1rem; /* Changed from px to rem for scalability */
+    /* Global styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    nav ul li a {
-      font-size: 0.9rem; /* Changed from px to rem for scalability */
+
+    body {
+      font-family: "Montserrat", sans-serif;
+      background: white;
+      overflow-x: hidden;
     }
-  }
-  @media (max-width: 890px) {
-    .checkbtn {
-      display: block;
-    }
-    label.logo {
-      font-size: 1.4rem; /* Changed from px to rem for scalability */
-    }
-    ul {
-      position: fixed;
+
+    nav {
+      background: #c90000;
+      height: 80px;
       width: 100%;
-      height: 100vh;
-      background: #2c3e50;
-      top: 80px;
-      left: -100%;
-      text-align: center;
-      transition: all .5s;
-      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
     }
+
+    .logo {
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .orlando {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: white;
+      margin-left: 10px;
+    }
+
+    nav ul {
+      display: flex;
+      align-items: center;
+      list-style: none;
+    }
+
     nav ul li {
-      display: block;
-      margin: 50px 0;
-      line-height: 30px;
+      margin: 0 10px;
     }
+
     nav ul li a {
-      font-size: 1.4rem; /* Changed from px to rem for scalability */
+      color: white;
+      font-size: 16px;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 3px;
+      transition: background 0.3s ease;
     }
-    a:hover,
-    a.active {
-      background: none;
-      color: #006eff;
+
+    nav ul li a:hover,
+    nav ul li a.active {
+      background: #1b9bff;
     }
-    #check:checked~ul {
-      left: 0;
+
+    .checkbtn {
+      display: none;
+      font-size: 22px;
+      color: white;
+      cursor: pointer;
     }
-  }
-  section {
-    background: url("https://i.imgur.com/p9F2RSO.jpeg") no-repeat;
-    background-size: cover;
-    height: calc(100vh - 80px);
-  }
-  .orlando {
-    width: 75px;
-    border-radius: 50%;
-    position: absolute;
-    top: 3px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: white;
-  }
-  .role {
-    position: absolute;
-    top: 20px;
-    left: 5%;
-    color: white;
-    font-size: 3rem; /* Changed from px to rem for scalability */
-  }
-  .photo {
-    padding: 5rem 10%; /* Changed from px to rem and % for scalability */
-    background-image: url('players.jpg');
-    background-size: cover;
-    position: relative; /* Changed from absolute to relative for better positioning */
-    top: 100px;
-    border-radius: 5px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-  }
-  .last {
-    padding: 5rem 10%; /* Changed from px to rem and % for scalability */
-    background-image: url('https://i.imgur.com/X8JJ2Kz.jpeg');
-    background-size: cover;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    position: relative; /* Changed from absolute to relative for better positioning */
-    top: 100px; /* Adjusted for consistent spacing */
-    border-radius: 5px;
-    margin-top: 50px;
-  }
-  .content {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .match {
-    position: absolute;
-    top: 30px;
-    left: 60px;
-    color: white;
-    font-size: 1.5rem; /* Changed from px to rem for scalability */
-  }
-  @media (max-width: 768px) {
-    .role {
-      font-size: 2rem; /* Adjust for smaller screens */
+
+    #check {
+      display: none;
     }
-    .match {
-      font-size: 1.2rem; /* Adjust for smaller screens */
-      left: 10px;
+
+    /* Hero section */
+    .photo {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 50vh;
+      background: url('players.jpg') center/cover no-repeat;
+      text-align: center;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      position: relative;
     }
-    .photo, .last {
-      padding: 3rem 5%; /* Adjust padding for smaller screens */
+
+    .photo .role {
+      font-size: 2.5rem;
+      font-weight: bold;
     }
-  }
+
+    /* Content section */
+    .last {
+      margin: 20px auto;
+      padding: 100px 20px;
+      background: url('https://i.imgur.com/X8JJ2Kz.jpeg') center/cover no-repeat;
+      text-align: center;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .last .match {
+      font-size: 2rem;
+      font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Responsive navigation */
+    @media (max-width: 890px) {
+      .checkbtn {
+        display: block;
+      }
+
+      nav ul {
+        flex-direction: column;
+        position: fixed;
+        top: 80px;
+        left: -100%;
+        width: 100%;
+        height: calc(100vh - 80px);
+        background: #2c3e50;
+        text-align: center;
+        transition: left 0.5s ease;
+        z-index: 999;
+      }
+
+      nav ul li {
+        margin: 20px 0;
+      }
+
+      #check:checked ~ ul {
+        left: 0;
+      }
+
+      .logo {
+        font-size: 20px;
+      }
+
+      .orlando {
+        width: 40px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .photo .role {
+        font-size: 1.8rem;
+      }
+
+      .last .match {
+        font-size: 1.5rem;
+      }
+    }
   </style>
 </head>
+
 <body>
+  <!-- Navigation -->
   <nav>
-    <input type="checkbox" id="check">
-    <label for="check" class="checkbtn"><i class="fas fa-bars"></i></label>
     <label class="logo">ORLANDO FC</label>
     <img src="https://i.imgur.com/qarYPsB.jpeg" class="orlando">
+    <input type="checkbox" id="check">
+    <label for="check" class="checkbtn">
+      <i class="fas fa-bars"></i>
+    </label>
     <ul>
-      <li><a class="active" href="#">HOME</a></li>
-      <li><a href="website2.html">PLAYERS</a></li>
-      <li><a href="website3.html">TEAM</a></li>
-      <li><a href="website5.html">MEDIA</a></li>
-      <li><a href="website4.html">ABOUT US</a></li>
+      <li><a class="active" href="#">Home</a></li>
+      <li><a href="website2.html">Players</a></li>
+      <li><a href="website3.html">Team</a></li>
+      <li><a href="website5.html">Media</a></li>
+      <li><a href="website4.html">About Us</a></li>
     </ul>
   </nav>
+
+  <!-- Hero Section -->
   <div class="photo">
-    <h3 class="role">LIVE FOR THE GAME</h3>
+    <h3 class="role">Live for the Game</h3>
   </div>
+
+  <!-- Content Section -->
   <div class="last">
-    <h5 class="match"> TEAM KIT </h5>
+    <h5 class="match">Team Kit</h5>
   </div>
-  <section></section>
 </body>
+
 </html>
