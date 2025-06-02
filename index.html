@@ -817,6 +817,127 @@
     justify-content: center !important;
   }
 }
+/* ✅ Final Mobile Layout Fix for All Screens */
+@media (max-width: 768px) {
+  header {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 10px;
+  }
+
+  .header-content {
+    align-items: center !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .app-title {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 4px;
+  }
+
+  .user-info {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .header-actions {
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100%;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .container {
+    padding: 0 10px !important;
+  }
+
+  .btn-group,
+  .form-row,
+  .tabs {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 10px;
+  }
+
+  .btn,
+  select,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"] {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .summary-cards {
+    grid-template-columns: 1fr !important;
+  }
+
+  .results-container {
+    overflow-x: auto !important;
+    padding: 0 0 10px 0 !important;
+  }
+
+  table {
+    width: 100% !important;
+    min-width: unset !important;
+    display: block;
+  }
+
+  th, td {
+    padding: 10px 12px !important;
+    font-size: 0.95rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .admin-user-item {
+    flex-direction: column !important;
+    align-items: flex-start;
+  }
+
+  .admin-user-actions {
+    width: 100% !important;
+    justify-content: flex-end;
+  }
+
+  .modal-content {
+    width: 95% !important;
+  }
+
+  .tab {
+    width: 100%;
+    text-align: center;
+  }
+
+  .modern-login-btn {
+    width: 100% !important;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.4rem !important;
+  }
+
+  .card-title {
+    font-size: 1.2rem !important;
+  }
+
+  #header-logo {
+    width: 38px !important;
+  }
+
+  .btn {
+    font-size: 0.95rem !important;
+    padding: 10px 14px !important;
+  }
+}
 
 </style>
 </head>
