@@ -747,98 +747,74 @@
 }
 
     
-/* 📱 Stronger Mobile Enhancements */
+/* 📱 Final Mobile Alignment Fixes */
 @media (max-width: 768px) {
-  .btn-group,
-  .form-row,
-  .user-role-select {
+  .header {
     flex-direction: column !important;
-  }
-
-  .btn,
-  select,
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  input[type="date"] {
-    width: 100% !important;
-  }
-
-  .header,
-  .header-content,
-  .header-actions {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    width: 100%;
-  }
-
-  .tabs {
-    flex-direction: column !important;
-  }
-
-  .tab {
-    width: 100% !important;
+    align-items: center !important;
     text-align: center !important;
   }
 
-  .summary-cards {
-    grid-template-columns: 1fr !important;
+  .header-content {
+    align-items: center !important;
+    width: 100% !important;
+  }
+
+  .app-title {
+    flex-direction: column !important;
+    gap: 5px !important;
+    align-items: center !important;
+  }
+
+  .user-info {
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+
+  .header-actions {
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 10px !important;
+    margin-left: 0 !important;
+  }
+
+  .btn-group {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .btn {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .results-container {
-    overflow-x: auto !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
   }
 
   table {
     width: 100% !important;
-    min-width: 600px !important;
-    display: block;
+    min-width: unset !important;
+    overflow-x: auto !important;
   }
 
-  .admin-user-item {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 10px !important;
+  th, td {
+    font-size: 0.95rem !important;
+    text-align: left !important;
+    padding: 12px !important;
   }
 
-  .admin-user-actions {
-    align-self: flex-end !important;
+  .tab {
+    text-align: center !important;
     width: 100% !important;
-    justify-content: flex-end !important;
-  }
-
-  .modal-content {
-    padding: 20px !important;
-    width: 95% !important;
   }
 
   .modern-login-btn {
     width: 100% !important;
     justify-content: center !important;
-  }
-}
-
-@media (max-width: 480px) {
-  h1 {
-    font-size: 1.3rem !important;
-  }
-
-  .card-title {
-    font-size: 1.2rem !important;
-  }
-
-  .btn {
-    font-size: 0.9rem !important;
-    padding: 10px 15px !important;
-  }
-
-  .tab {
-    font-size: 0.9rem !important;
-    padding: 10px !important;
-  }
-
-  #header-logo {
-    width: 35px !important;
   }
 }
 
