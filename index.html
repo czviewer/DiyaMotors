@@ -74,7 +74,7 @@
         #splash-logo {
             width: 140px;
             height: auto;
-            margin-bottom: 20px;
+            margin-bottom: 0px;
             animation: pulse 2s infinite;
         }
         
@@ -107,7 +107,7 @@
         }
 
         #header-logo, #attendance-header-logo, #admin-header-logo {
-            width: 50px;
+            width: auto;
             height: auto;
         }
 
@@ -784,7 +784,7 @@
             }
             
             .btn { 
-                width: 100%;
+                width: 90%;
             }
             
             .summary-cards {
@@ -799,7 +799,7 @@
             }
             
             #header-logo, #attendance-header-logo, #admin-header-logo {
-                margin-bottom: 5px; 
+                margin-bottom: -9px; 
             }
 
             .header-content {
@@ -810,7 +810,7 @@
 
             .app-title {
                 flex-direction: column !important; 
-                gap: 5px !important;
+                gap: 20px !important;
                 align-items: center !important;
             }
 
@@ -917,7 +917,7 @@
             }
             
             #header-logo, #attendance-header-logo, #admin-header-logo {
-                width: 40px; 
+                width: 99px; 
             }
             
             .btn { 
@@ -969,7 +969,7 @@
 </head>
 <body>
     <div id="splash-screen">
-        <img id="splash-logo" src="https://cdn.imgchest.com/files/yrgcn3zlv84.png" alt="AbsentEase Logo">
+        <img id="splash-logo" src="https://cdn.imgchest.com/files/yxkcza8jnz7.png" alt="AbsentEase Logo">
         <p id="message"></p>
     </div>
     <div id="global-loader">
@@ -1008,7 +1008,7 @@
                 <img id="header-logo" src="https://cdn.imgchest.com/files/7mmc9jrkvv7.png" alt="Logo">
                 <div class="header-content">
                     <div class="app-title">
-                        <h1>AbsentEase</h1>
+                        <h1>  </h1>
                         <span id="user-role-badge" class="role-badge badge-teacher">Teacher</span>
                     </div>
                     <div class="user-info">
@@ -2777,23 +2777,7 @@ function setupAttendanceTabs() {
     });
 }
         });
-        document.getElementById('download-class-attendance-pdf').addEventListener('click', () => {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.text("Class Attendance Report", 14, 16);
-    doc.autoTable({ html: '#attendance-table-body'.closest('table'), startY: 22 });
-    doc.save('class-attendance.pdf');
-});
-
-document.getElementById('download-individual-attendance-pdf').addEventListener('click', () => {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const name = document.getElementById('student-name-display').innerText;
-    doc.text(`Attendance Report for ${name}`, 14, 16);
-    doc.autoTable({ html: '#student-attendance-body'.closest('table'), startY: 22 });
-    doc.save(`${name}-attendance.pdf`);
-});
-
+        
         // Function to get device and browser details
 function getDeviceDetails() {
     return {
@@ -2830,5 +2814,175 @@ function handleLogoutAction() {
 }
         
     </script>
+    <!-- PDF export logic to be added at the bottom of your HTML, just before </body> -->
+<!-- PDF export logic to be added at the bottom of your HTML, just before </body> -->
+<!-- PDF export logic to be added at the bottom of your HTML, just before </body> -->
+<script>
+  function formatDateToDDMMYYYY(timestamp) {
+    const now = new Date(timestamp);
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.jspdf && window.jspdf.jsPDF) {
+      const { jsPDF } = window.jspdf;
+
+      const classBtn = document.getElementById("download-class-attendance-pdf");
+      const individualBtn = document.getElementById("download-individual-attendance-pdf");
+
+      const getFormattedDate = () => {
+        const now = new Date();
+        const day = now.toLocaleString('en-US', { weekday: 'long' });
+        return `${day}, ${formatDateToDDMMYYYY(now)}`;
+      };
+
+      const getCurrentClassName = () => {
+        const select = document.getElementById("attendance-class-selector");
+        return select?.options[select.selectedIndex]?.value || "Class";
+      };
+
+      const getClassTeacherName = (className) => {
+        const classTeachers = {
+          "A2": "Julie Vargheese",
+          "B2": "Deepti",
+          "C2": "Harin SK",
+          "D2": "Anulekshmi V"
+        };
+        return classTeachers[className] || "NIL";
+      };
+
+      if (classBtn) {
+        classBtn.addEventListener("click", () => {
+          const doc = new jsPDF();
+          const table = document.querySelector("#attendance-table-body")?.closest("table");
+          if (!table) return alert("Attendance table not found");
+
+          const className = getCurrentClassName();
+          const teacherName = getClassTeacherName(className);
+
+          doc.text("Class Attendance Report", 14, 16);
+          doc.text(getFormattedDate(), 14, 26);
+          doc.text(`Class: ${className}`, 14, 36);
+          doc.text(`Class Teacher: ${teacherName}`, 14, 46);
+          doc.autoTable({ html: table, startY: 52 });
+          doc.save("class-attendance.pdf");
+        });
+      }
+
+      if (individualBtn) {
+        individualBtn.addEventListener("click", () => {
+          const doc = new jsPDF();
+          const name = document.getElementById("student-name-display")?.innerText || "Student";
+          const table = document.querySelector("#student-attendance-body")?.closest("table");
+          if (!table) return alert("Student attendance table not found");
+
+          doc.text(`Attendance Report for ${name}`, 14, 16);
+          doc.text(getFormattedDate(), 14, 26);
+          doc.autoTable({ html: table, startY: 32 });
+          doc.save(`${name.replace(/\s+/g, '_').toLowerCase()}_attendance.pdf`);
+        });
+      }
+    } else {
+      console.error("jsPDF or jsPDF.autoTable not loaded properly.");
+    }
+
+    // Logout confirmation
+    const logoutButtons = [
+      document.getElementById("logout-btn"),
+      document.getElementById("attendance-logout-btn"),
+      document.getElementById("admin-logout-btn")
+    ];
+
+    logoutButtons.forEach(btn => {
+      if (btn) {
+        const clone = btn.cloneNode(true);
+        btn.parentNode.replaceChild(clone, btn); // remove existing listeners
+        clone.addEventListener("click", (e) => {
+          e.preventDefault();
+          const confirmed = confirm("Are you sure you want to logout?");
+          if (confirmed) {
+            if (firebase && firebase.auth) {
+              firebase.auth().signOut();
+            }
+          }
+        });
+      }
+    });
+
+    // Load devices on admin panel open (device tab)
+    const loadDeviceTab = document.querySelector('[data-tab="devices"]');
+    if (loadDeviceTab) {
+      loadDeviceTab.addEventListener("click", loadAllUserDevices);
+    }
+  });
+
+  async function registerDevice(user) {
+    const detector = new DeviceDetector();
+    const parsed = detector.parse(navigator.userAgent);
+    const deviceInfo = {
+      email: user.email,
+      userAgent: navigator.userAgent,
+      device: parsed.device?.type || 'Unknown',
+      browser: parsed.client?.name || 'Unknown',
+      os: parsed.os?.name || 'Unknown',
+      date: Date.now()
+    };
+
+    const userRef = firebase.database().ref(`devices/${user.uid}`);
+    const snapshot = await userRef.once('value');
+    const existing = snapshot.val() || {};
+
+    const maxDevicesSnap = await firebase.database().ref("settings/deviceLimit").once("value");
+    const maxDevices = maxDevicesSnap.val() || 3;
+
+    if (Object.keys(existing).length >= maxDevices) {
+      alert("Device limit reached. Please remove an old device to continue.");
+      return;
+    }
+
+    await userRef.push(deviceInfo);
+  }
+
+  async function loadAllUserDevices() {
+    const container = document.getElementById("user-devices-list");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const detector = new DeviceDetector();
+    const snapshot = await firebase.database().ref("devices").once("value");
+    const allDevices = snapshot.val() || {};
+
+    for (const userId in allDevices) {
+      const userDevices = allDevices[userId];
+      for (const key in userDevices) {
+        const data = userDevices[key];
+        const parsed = detector.parse(data.userAgent || "");
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${data.email}</td>
+          <td>${parsed.device?.type || "Unknown"}</td>
+          <td>${parsed.client?.name || "Unknown"}</td>
+          <td>${parsed.os?.name || "Unknown"}</td>
+          <td>${formatDateToDDMMYYYY(data.date)}</td>
+          <td><button class="btn btn-danger" onclick="removeDevice('${userId}', '${key}')">Remove</button></td>
+        `;
+        container.appendChild(row);
+      }
+    }
+  }
+
+  function removeDevice(userId, deviceKey) {
+    firebase.database().ref(`devices/${userId}/${deviceKey}`).remove().then(() => {
+      loadAllUserDevices();
+    });
+  }
+</script>
+
+
+
 </body>
 </html>
