@@ -2118,7 +2118,7 @@ function modifyRolls(action, currentList) {
 
     const attendanceRef = firebase.database().ref(`attendance/${date}/${classId}/absentees`);
     attendanceRef.set(fullAbsentees).then(() => {
-      alert("✅ Absentees list updated in both locations.");
+      alert("✅ Absentees list updated");
       showCorrectionPanel(updated); // Refresh with new list
     });
 
