@@ -1918,6 +1918,10 @@
             async function handleSplashScreen() {
                 await typeMessage(welcomeMessage, messageEl);
                 splashScreen.classList.add("fade-out");
+                 setTimeout(() => {
+        const whatsappBtn = document.getElementById("whatsapp-button");
+        if (whatsappBtn) whatsappBtn.style.display = 'flex';
+    }, 500); 
                 setTimeout(() => { splashScreen.style.display = "none"; }, 500);
                 function handleSplashScreen() {
     typeMessage(welcomeMessage, messageEl).then(() => {
