@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1496,6 +1497,40 @@
                     </div>
                 </div>
             </div>
+            <div class="form-group">
+  <label for="clear-log-type"><i class="fas fa-trash-alt"></i> Clear Log Option</label>
+  <select id="clear-log-type">
+    <option value="">-- Select --</option>
+    <option value="user">Clear Logs by User Email</option>
+    <option value="admin">Clear All Admin Logs</option>
+    <option value="administrator">Clear Only Administrator Logs</option>
+    <option value="all">Clear All Logs (Super Admin)</option>
+  </select>
+</div>
+<div class="form-group" id="log-email-group" style="display:none;">
+  <label for="clear-log-email"><i class="fas fa-envelope"></i> User Email</label>
+  <input type="email" id="clear-log-email" placeholder="Enter user email">
+</div>
+<div class="form-row">
+  <div class="form-group">
+    <label for="clear-start-date"><i class="fas fa-calendar-day"></i> Start Date (optional)</label>
+    <input type="date" id="clear-start-date">
+  </div>
+  <div class="form-group">
+    <label for="clear-end-date"><i class="fas fa-calendar-day"></i> End Date (optional)</label>
+    <input type="date" id="clear-end-date">
+  </div>
+</div>
+<small style="margin-top: -10px; color: #6c757d; font-size: 0.85rem;">
+  🗓️ If set, only logs between these dates will be deleted (inclusive).
+</small>
+
+<div class="btn-group">
+  <button id="clear-log-btn" class="btn btn-danger">
+    <i class="fas fa-trash"></i> Clear Logs
+  </button>
+</div>
+
             
             <!-- System Settings Tab -->
             <div class="tab-content" id="settings-tab">
@@ -3059,6 +3094,61 @@ function handleLogoutAction() {
       }
     }, 6300); // ⏳ 2.5 seconds splash duration (change if needed)
   });
+  document.getElementById("clear-log-type").addEventListener("change", function () {
+  const val = this.value;
+  document.getElementById("log-email-group").style.display = val === "user" ? "block" : "none";
+});
+
+document.getElementById("clear-log-btn").addEventListener("click", function () {
+  const type = document.getElementById("clear-log-type").value;
+  const email = document.getElementById("clear-log-email").value.trim().toLowerCase();
+  const startDate = document.getElementById("clear-start-date").value;
+  const endDate = document.getElementById("clear-end-date").value;
+  const logsRef = firebase.database().ref("activityLogs");
+
+  if (!type) {
+    alert("⚠️ Please select a log clear option.");
+    return;
+  }
+
+  logsRef.once("value").then(snapshot => {
+    const updates = {};
+    const startTS = startDate ? new Date(startDate).getTime() : null;
+    const endTS = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : null;
+
+    snapshot.forEach(child => {
+      const log = child.val();
+      const logTime = log.timestamp || 0;
+
+      const inDateRange = (!startTS || logTime >= startTS) && (!endTS || logTime <= endTS);
+      const isUser = type === "user" && log.userEmail?.toLowerCase() === email;
+      const isAdmin = type === "admin" && log.userEmail?.toLowerCase().includes("admin");
+      const isAdministrator = type === "administrator" && log.userName?.toLowerCase().includes("administrator");
+      const isSuperClear = type === "all" && firebase.auth().currentUser.email === "czkarthikr@gmail.com";
+
+      if ((isUser || isAdmin || isAdministrator || isSuperClear) && inDateRange) {
+        updates[child.key] = null;
+      }
+    });
+
+    if (Object.keys(updates).length === 0) {
+      alert("📭 No logs matched your criteria.");
+      return;
+    }
+
+    if (type === "all" && firebase.auth().currentUser.email !== "czkarthikr@gmail.com") {
+      alert("⛔ Only Super Admin can clear all logs!");
+      return;
+    }
+
+    logsRef.update(updates).then(() => {
+      alert("✅ Logs cleared successfully!");
+    }).catch(err => {
+      alert("❌ Error clearing logs: " + err.message);
+    });
+  });
+});
+
 </script>
 <!-- WhatsApp Floating Button -->
 <a href= "https://chat.whatsapp.com/LXYe5XlUmzGG22di9Z74eS" class="whatsapp-all" id="whatsappBtn" style="display: none;" target="_blank">
