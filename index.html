@@ -20,6 +20,7 @@
             --admin: #6dd10f;
             --principal: #ee911f;
             --teacher: #ecf000;
+            --table: black;
             --border-radius: 12px;
             --box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
             --transition: all 0.3s ease;
@@ -29,6 +30,8 @@
             --gradient-success: linear-gradient(135deg, #ce0000 0%, #d2aa17 100%);
             --gradient-danger: linear-gradient(135deg, #f72585 0%, #d81b60 100%);
             --gradient-warning: linear-gradient(135deg, #f8961e 0%, #f57c00 100%);
+            --gradient-table: linear-gradient(135deg, #0a332269 0%, #0e434f9e 100%);
+            --gradient-viewallbtn: linear-gradient(135deg, #0a332269 0%, #0e434f9e 100%);
         }
 
         * {
@@ -210,7 +213,7 @@
         }
 
         .btn-secondary { 
-            background: linear-gradient(99deg, #a121b9cc 0%, #142ac9 100%);
+            background: linear-gradient(99deg, #000000cc 0%, #022885 100%);
             color: white;
         }
         .btn-secondary:hover {
@@ -306,7 +309,7 @@
         }
 
         .control-panel {
-            background: #afb1b394;
+            background: #c0c7cd94;
 ;
             border-radius: var(--border-radius);
             padding: 30px;
@@ -363,7 +366,7 @@
         }
 
         .results-container {
-            background: #378fdd94;
+            background: #c2e2ff94;
             border-radius: var(--border-radius);
             padding: 25px;
             box-shadow: var(--box-shadow);
@@ -391,9 +394,9 @@
 
 
         th {
-            background: var(--gradient-primary);
+            background: var(--gradient-table);
             color: white;
-            font-weight: 500;
+            font-weight: 600;
             position: sticky;
             top: 0;
             z-index: 1; /* Ensure header stays above scrolling content */
@@ -924,7 +927,7 @@
             
             .btn { 
                 font-size: 0.9rem !important;
-                padding: 10px 15px !important;
+                padding: 8px 15px !important;
             }
 
             .card-title {
@@ -962,6 +965,15 @@
 }
 .device-actions {
     margin-top: 5px;
+}
+/* Add this to your CSS */
+.btn-group.center-buttons {
+    justify-content: center;
+    width: 100%;
+}
+
+.btn-group.center-buttons .btn {
+    margin: 0 5px;
 }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1077,9 +1089,9 @@
     <div id="attendance-screen">
         <div class="container">
             <header>
-                <button id="back-btn" class="btn btn-secondary back-btn"> 
-                    <i class="fas fa-arrow-left"></i> Back
-                </button>
+<button id="attendance-logout-btn" class="btn btn-logout"> 
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
                 <img id="attendance-header-logo" src="https://cdn.imgchest.com/files/7mmc9jrkvv7.png" alt="Logo">
                 <div class="header-content">
                     <div class="app-title">
@@ -1094,9 +1106,10 @@
                     <button id="admin-panel-btn2" class="btn btn-administrator" style="display: none;">
                         <i class="fas fa-cog"></i> Admin
                     </button>
-                    <button id="attendance-logout-btn" class="btn btn-logout"> 
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </button>
+                    
+                <button id="back-btn" class="btn btn-secondary back-btn"> 
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
                 </div>
             </header>
 
@@ -1147,7 +1160,7 @@
                         <div class="subtext">for this class</div>
                     </div>
                 </div>
-                <div class="btn-group" style="margin-bottom: 20px;">
+                <div class="btn-group center-buttons" style="margin-bottom: 20px;">
     <button id="download-class-attendance-pdf" class="btn btn-success">
         <i class="fas fa-file-pdf"></i> Download PDF
     </button>
@@ -1192,7 +1205,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="btn-group" style="margin-bottom: 20px;">
+               <div class="btn-group center-buttons" style="margin-bottom: 20px;">
     <button id="download-individual-attendance-pdf" class="btn btn-success">
         <i class="fas fa-file-pdf"></i> Download PDF
     </button>
@@ -1220,9 +1233,9 @@
     <div id="admin-panel">
         <div class="container">
             <header>
-                <button id="admin-back-btn" class="btn btn-secondary back-btn"> 
-                    <i class="fas fa-arrow-left"></i> Back
-                </button>
+                <button id="admin-logout-btn" class="btn btn-logout"> 
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
                 <img id="admin-header-logo" src="https://cdn.imgchest.com/files/7mmc9jrkvv7.png" alt="Logo">
                 <div class="header-content">
                     <div class="app-title">
@@ -1234,9 +1247,11 @@
                     </div>
                 </div>
                 <div class="header-actions">
-                    <button id="admin-logout-btn" class="btn btn-logout"> 
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </button>
+                    
+                    <button id="admin-back-btn" class="btn btn-secondary back-btn"> 
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                    
                 </div>
             </header>
 
@@ -1245,7 +1260,6 @@
                 <div class="tab" data-tab="attendance-mgmt"><i class="fas fa-calendar-check"></i> Attendance Management</div>
                 <div class="tab" data-tab="activity-logs"><i class="fas fa-history"></i> Activity Logs</div>
                 <div class="tab" data-tab="settings"><i class="fas fa-cogs"></i> System Settings</div>
-                <div class="tab" data-tab="devices"><i class="fas fa-mobile-alt"></i> Device Management</div>
             </div>
 
             <!-- User Management Tab -->
@@ -1300,31 +1314,6 @@
                 </div>
             </div>
             <div class="tab-content" id="devices-tab">
-    <div class="card">
-        <h2 class="card-title"><i class="fas fa-cog"></i> Device Settings</h2>
-        <div id="device-settings-error" class="error-message"></div>
-        <div id="device-settings-success" class="success-message"></div>
-        <div class="form-group">
-            <label for="max-devices"><i class="fas fa-laptop"></i> Max Devices Per User</label>
-            <input type="number" id="max-devices" min="1" max="10" value="3">
-        </div>
-        <div class="btn-group">
-            <button id="save-device-settings-btn" class="btn btn-primary">
-                <i class="fas fa-save"></i> Save Settings
-            </button>
-        </div>
-    </div>
-    
-    <div class="card">
-        <h2 class="card-title"><i class="fas fa-users"></i> User Devices</h2>
-        <div class="form-group">
-            <label for="device-user-filter"><i class="fas fa-filter"></i> Filter by User</label>
-            <input type="text" id="device-user-filter" placeholder="Search by email or name">
-        </div>
-        <div class="device-list" id="user-devices-list">
-            <!-- Devices will be loaded here -->
-        </div>
-    </div>
 </div>
 
 
@@ -2192,7 +2181,7 @@
                     await logActivity('share_attendance_success', { class: selectedClass, date: todayDB, count: absentees.length });
 
                     let shareText = `Today's Absentees (${todayFormatted}) - Class ${selectedClass}\n------------------------------------------\n`;
-                    absentees.forEach(item => { shareText += `${item.name} (Roll: ${item.roll})\n`; });
+                    absentees.forEach(item => { shareText += `${item.name}\n`; });
 
                     if (navigator.share) {
                         await navigator.share({ title: `Absentees - ${todayFormatted} - Class ${selectedClass}`, text: shareText });
