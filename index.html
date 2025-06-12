@@ -1132,6 +1132,17 @@
                     <button id="share-btn" class="btn btn-success" style="display: none;">
                         <i class="fas fa-share-alt"></i> Save & Share
                     </button>
+                    <!-- 🛠️ Correction Panel -->
+<div id="correction-ui" style="display: none; margin-top: 30px;">
+  <h3><i class="fas fa-tools"></i> Correction Panel (within 5 Hours)</h3>
+  <input type="text" id="corrected-rolls" placeholder="Enter roll numbers to add/remove (e.g. 2, 7, 15)">
+  <div class="btn-group" style="margin-top: 10px;">
+    <button id="add-rolls-btn" class="btn btn-success"><i class="fas fa-plus"></i> Add</button>
+    <button id="remove-rolls-btn" class="btn btn-danger"><i class="fas fa-minus"></i> Remove</button>
+  </div>
+</div>
+
+
                 </div>
             </div>
 <div class="site-subtext-wrapper">
@@ -1496,40 +1507,49 @@
                         </table>
                     </div>
                 </div>
-            </div>
-            <div class="form-group">
-  <label for="clear-log-type"><i class="fas fa-trash-alt"></i> Clear Log Option</label>
-  <select id="clear-log-type">
-    <option value="">-- Select --</option>
-    <option value="user">Clear Logs by User Email</option>
-    <option value="admin">Clear All Admin Logs</option>
-    <option value="administrator">Clear Only Administrator Logs</option>
-    <option value="all">Clear All Logs (Super Admin)</option>
-  </select>
-</div>
-<div class="form-group" id="log-email-group" style="display:none;">
-  <label for="clear-log-email"><i class="fas fa-envelope"></i> User Email</label>
-  <input type="email" id="clear-log-email" placeholder="Enter user email">
-</div>
-<div class="form-row">
-  <div class="form-group">
-    <label for="clear-start-date"><i class="fas fa-calendar-day"></i> Start Date (optional)</label>
-    <input type="date" id="clear-start-date">
-  </div>
-  <div class="form-group">
-    <label for="clear-end-date"><i class="fas fa-calendar-day"></i> End Date (optional)</label>
-    <input type="date" id="clear-end-date">
-  </div>
-</div>
-<small style="margin-top: -10px; color: #6c757d; font-size: 0.85rem;">
-  🗓️ If set, only logs between these dates will be deleted (inclusive).
-</small>
+                <div class="card">
+  <h3 class="card-title"><i class="fas fa-broom"></i> Clear Activity Logs</h3>
 
-<div class="btn-group">
-  <button id="clear-log-btn" class="btn btn-danger">
-    <i class="fas fa-trash"></i> Clear Logs
-  </button>
+  <div class="form-group">
+    <label for="clear-log-type"><i class="fas fa-trash-alt"></i> Clear Log Option</label>
+    <select id="clear-log-type">
+      <option value="">-- Select --</option>
+      <option value="user">Clear Logs by User Email</option>
+      <option value="admin">Clear All Admin Logs</option>
+      <option value="administrator">Clear Only Administrator Logs</option>
+      <option value="all">Clear All Logs (Super Admin)</option>
+    </select>
+  </div>
+
+  <div class="form-group" id="log-email-group" style="display:none;">
+    <label for="clear-log-email"><i class="fas fa-envelope"></i> User Email</label>
+    <input type="email" id="clear-log-email" placeholder="Enter user email">
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label for="clear-start-date"><i class="fas fa-calendar-day"></i> Start Date (optional)</label>
+      <input type="date" id="clear-start-date">
+    </div>
+    <div class="form-group">
+      <label for="clear-end-date"><i class="fas fa-calendar-day"></i> End Date (optional)</label>
+      <input type="date" id="clear-end-date">
+    </div>
+  </div>
+
+  <small style="margin-top: -10px; color: #6c757d; font-size: 0.85rem;">
+    🗓️ If set, only logs between these dates will be deleted (inclusive).
+  </small>
+
+  <div class="btn-group" style="margin-top: 10px;">
+    <button id="clear-log-btn" class="btn btn-danger">
+      <i class="fas fa-trash"></i> Clear Logs
+    </button>
+  </div>
 </div>
+
+            </div>
+
 
             
             <!-- System Settings Tab -->
@@ -1562,6 +1582,19 @@
                             <i class="fas fa-save"></i> Save System Settings
                         </button>
                     </div>
+                    <div class="form-group">
+  <label><i class="fas fa-shield-alt"></i> Enable Administrator Logging</label>
+  <select id="admin-log-toggle">
+    <option value="true">Enabled ✅</option>
+    <option value="false">Disabled ❌</option>
+  </select>
+</div>
+<div class="btn-group">
+  <button id="save-admin-log-setting" class="btn btn-primary">
+    <i class="fas fa-save"></i> Save Logging Setting
+  </button>
+</div>
+
                 </div>
                 <div class="card">
                     <h2 class="card-title"><i class="fas fa-shield-alt"></i> Security</h2>
@@ -2054,6 +2087,63 @@ async function handleSplashScreen() {
                     }
                 });
             }
+function showCorrectionPanel(absenteesList) {
+  document.getElementById("correction-ui").style.display = "block";
+  document.getElementById("add-rolls-btn").onclick = () => modifyRolls("add", absenteesList);
+  document.getElementById("remove-rolls-btn").onclick = () => modifyRolls("remove", absenteesList);
+}
+function modifyRolls(action, currentList) {
+  const input = document.getElementById("corrected-rolls").value;
+  const rolls = input.split(/[\s,]+/).map(r => parseInt(r)).filter(r => !isNaN(r));
+
+  const classId = classSelectorMain.value;
+  const date = new Date().toISOString().split('T')[0];
+
+  let updated = [...currentList];
+  if (action === "add") {
+    updated = Array.from(new Set([...updated, ...rolls]));
+  } else if (action === "remove") {
+    updated = updated.filter(r => !rolls.includes(r));
+  }
+
+  // Step 1: Update sharedAbsentees
+  const sharedRef = firebase.database().ref(`sharedAbsentees/${classId}/${date}/absentees`);
+  sharedRef.set(updated).then(() => {
+
+    // Step 2: Update main attendance path
+    const fullAbsentees = updated.map(roll => ({
+      roll: roll.toString(),
+      name: allStudentNames[classId]?.[roll] || "Unknown"
+    }));
+
+    const attendanceRef = firebase.database().ref(`attendance/${date}/${classId}/absentees`);
+    attendanceRef.set(fullAbsentees).then(() => {
+      alert("✅ Absentees list updated in both locations.");
+      showCorrectionPanel(updated); // Refresh with new list
+    });
+
+  });
+}
+
+function checkCorrectionWindow() {
+  const classId = classSelectorMain.value;
+  const date = new Date().toISOString().split('T')[0];
+  const cooldownMs = 5 * 60 * 60 * 1000;
+
+  firebase.database().ref(`sharedAbsentees/${classId}/${date}`).once("value").then(snapshot => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    const submittedAt = data.timestamp || 0;
+    const now = Date.now();
+
+    if (now - submittedAt <= cooldownMs) {
+      showCorrectionPanel(data.absentees);
+    } else {
+      document.getElementById("correction-ui").style.display = "none";
+    }
+  });
+}
 
             async function handleAuthStateChange(user) {
                 if (!splashScreen.classList.contains('fade-out')) { // Ensure splash is handled first
@@ -2290,6 +2380,15 @@ async function handleSplashScreen() {
                     await attendanceRef.set({ date: todayDB, class: selectedClass, absentees: absentees, recordedBy: currentUser.uid, recordedAt: firebase.database.ServerValue.TIMESTAMP });
                     showMessage(mainSuccessMessage.id, "Attendance saved successfully!");
                     await logActivity('share_attendance_success', { class: selectedClass, date: todayDB, count: absentees.length });
+                    // ✅ Save data for correction window (5 hour logic)
+const sharedAbsenteesRef = database.ref(`sharedAbsentees/${selectedClass}/${todayDB}`);
+await sharedAbsenteesRef.set({
+  sharedBy: currentUser.email,
+  timestamp: Date.now(),
+  absentees: absentees.map(a => parseInt(a.roll))
+});
+checkCorrectionWindow();
+
 
                     let shareText = `Today's Absentees (${todayFormatted}) - Class ${selectedClass}\n------------------------------------------\n`;
                     absentees.forEach(item => { shareText += `${item.name}\n`; });
@@ -2303,9 +2402,17 @@ async function handleSplashScreen() {
                     showMessage(mainErrorMessage.id, `Error: ${error.message}`, false);
                     await logActivity('share_attendance_error', { class: selectedClass, date: todayDB, error: error.message });
                 }
+                // ✅ Save shared absentees separately for correction window
+
+
                 hideLoader();
             });
-            
+            function showCorrectionPanel(absenteesList) {
+  document.getElementById("correction-ui").style.display = "block";
+  document.getElementById("add-rolls-btn").onclick = () => modifyRolls("add", absenteesList);
+  document.getElementById("remove-rolls-btn").onclick = () => modifyRolls("remove", absenteesList);
+}
+
             function fallbackShareText(text, messageElementId, successText) {
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
@@ -3148,6 +3255,56 @@ document.getElementById("clear-log-btn").addEventListener("click", function () {
     });
   });
 });
+document.getElementById("save-admin-log-setting").addEventListener("click", function () {
+  const enableLogging = document.getElementById("admin-log-toggle").value === "true";
+  firebase.database().ref("settings/adminLogging").set(enableLogging)
+    .then(() => {
+      alert("✅ Administrator logging setting updated!");
+    })
+    .catch((err) => {
+      alert("❌ Failed to save setting: " + err.message);
+    });
+});
+function logActivity(action, details = {}) {
+  firebase.database().ref("settings/adminLogging").once("value").then(snapshot => {
+    const loggingEnabled = snapshot.val() !== false; // Default = true
+    const user = firebase.auth().currentUser;
+    if (!loggingEnabled && user && user.displayName?.toLowerCase().includes("administrator")) {
+      return; // Skip log for administrator if disabled
+    }
+
+    const logEntry = {
+      action,
+      details,
+      timestamp: Date.now(),
+      userEmail: user?.email || "Unknown",
+      userId: user?.uid || "Unknown",
+      userName: user?.displayName || "Unknown",
+      device: getDeviceDetails() // Optional helper
+    };
+
+    firebase.database().ref("activityLogs").push(logEntry);
+  });
+}
+function checkCorrectionWindow() {
+  const classId = classSelectorMain.value;
+  const date = new Date().toISOString().split('T')[0];
+  const cooldownMs = 5 * 60 * 60 * 1000;
+
+  firebase.database().ref(`sharedAbsentees/${classId}/${date}`).once("value").then(snapshot => {
+    const data = snapshot.val();
+    if (!data) return;
+    const submittedAt = data.timestamp || 0;
+    const now = Date.now();
+
+    if (now - submittedAt <= cooldownMs) {
+      showCorrectionPanel(data.absentees);
+    } else {
+      document.getElementById("correction-ui").style.display = "none";
+    }
+  });
+}
+
 
 </script>
 <!-- WhatsApp Floating Button -->
