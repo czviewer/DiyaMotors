@@ -8,6 +8,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        input::placeholder,
+textarea::placeholder {
+  color: rgba(0, 0, 0, 0.20); /* Light grey placeholder */
+  font-style: italic;
+}
+
         :root {
             --primary: #283751;
             --primary-dark: #3a56d4;
@@ -2118,7 +2124,7 @@ function modifyRolls(action, currentList) {
 
     const attendanceRef = firebase.database().ref(`attendance/${date}/${classId}/absentees`);
     attendanceRef.set(fullAbsentees).then(() => {
-      alert("✅ Absentees list updated");
+      alert("✅ Absentees list updated.");
       showCorrectionPanel(updated); // Refresh with new list
     });
 
