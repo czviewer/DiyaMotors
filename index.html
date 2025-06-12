@@ -54,20 +54,23 @@
             padding: 0 20px;
         }
 
-        #splash-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-            background: var(--gradient-primary);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            transition: opacity 0.5s ease;
-        }
+#splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    /* Replace gradient with background image */
+    background: url('https://cdn.imgchest.com/files/yd5celrwvw4.jpg') no-repeat center center;
+    background-size: cover; /* Ensures image covers full screen */
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: opacity 0.5s ease;
+}
 
         #splash-screen.fade-out {
             opacity: 0;
@@ -978,7 +981,7 @@
 .site-subtext {
     display: inline-block;
     padding-left: 100%;
-    animation: scroll-left 20s linear infinite;
+    animation: scroll-left 15s linear infinite;
     font-size: 0.85rem;
     color: #6c757d;
 }
@@ -3044,7 +3047,7 @@ function handleLogoutAction() {
   });
 </script>
 <!-- WhatsApp Floating Button -->
-<a href="https://chat.whatsapp.com/LXYe5XlUmzGG22di9Z74eS" class="whatsapp-all" id="whatsappBtn" style="display: none;" target="_blank">
+<a href= "https://chat.whatsapp.com/LXYe5XlUmzGG22di9Z74eS" class="whatsapp-all" id="whatsappBtn" style="display: none;" target="_blank">
   <img src="https://img.icons8.com/color/48/000000/whatsapp--v1.png" alt="WhatsApp" />
   <span>Talk to Team</span>
 </a>
