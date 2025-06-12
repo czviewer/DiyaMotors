@@ -1915,23 +1915,21 @@
             }
 
 
-            async function handleSplashScreen() {
-                await typeMessage(welcomeMessage, messageEl);
-                splashScreen.classList.add("fade-out");
-                 setTimeout(() => {
+async function handleSplashScreen() {
+    await typeMessage(welcomeMessage, messageEl);
+
+    // Fade out splash
+    const splashScreen = document.getElementById("splash-screen");
+    splashScreen.classList.add("fade-out");
+
+    // Wait for fade-out animation to finish
+    setTimeout(() => {
+        // ✅ Finally show WhatsApp button
         const whatsappBtn = document.getElementById("whatsapp-button");
         if (whatsappBtn) whatsappBtn.style.display = 'flex';
-    }, 500); 
-                setTimeout(() => { splashScreen.style.display = "none"; }, 500);
-                function handleSplashScreen() {
-    typeMessage(welcomeMessage, messageEl).then(() => {
-        splashScreen.classList.add("fade-out");
-        document.getElementById('site-subtext').style.opacity = 1; // Show subtext
-        setTimeout(() => { splashScreen.style.display = "none"; }, 500);
-    });
+    }, 600); // 500ms (fade duration) + 100ms buffer
 }
 
-            }
 
             function typeMessage(msg, element) {
                 return new Promise(resolve => {
