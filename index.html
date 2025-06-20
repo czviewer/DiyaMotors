@@ -1583,11 +1583,6 @@ textarea::placeholder {
                             </label>
                         </div>
                     </div>
-                    <div class="btn-group">
-                        <button id="save-system-settings-btn" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Save System Settings
-                        </button>
-                    </div>
                     <div class="form-group">
   <label><i class="fas fa-shield-alt"></i> Enable Administrator Logging</label>
   <select id="admin-log-toggle">
@@ -1600,7 +1595,11 @@ textarea::placeholder {
     <i class="fas fa-save"></i> Save Logging Setting
   </button>
 </div>
-
+                    <div class="btn-group">
+                        <button id="save-system-settings-btn" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save System Settings
+                        </button>
+                    </div>
                 </div>
                 <div class="card">
                     <h2 class="card-title"><i class="fas fa-shield-alt"></i> Security</h2>
@@ -1736,30 +1735,42 @@ textarea::placeholder {
         }
         
         // Function to log activities
-        async function logActivity(action, details = {}) {
-            if (!currentUser) {
-                console.warn("Attempted to log activity without a current user.", action, details);
-                return; 
-            }
-            const logEntry = {
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
-                userId: currentUser.uid,
-                userEmail: currentUser.email,
-                userName: userDisplayName, 
-                action: action,
-                details: details,
-                device: details.device || getDeviceDetails(),
-        ip: await fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => data.ip).catch(() => 'Unknown')
-            };
-            try {
-                const logRef = database.ref('activityLogs').push(); 
-                await logRef.set(logEntry);
-            } catch (error) {
-                console.error("Error logging activity:", error, logEntry);
-            }
+async function logActivity(action, details = {}) {
+    // First, check if logging for administrators is enabled
+    try {
+        const adminLoggingSnap = await database.ref('settings/adminLogging').once('value');
+        const isLoggingEnabled = adminLoggingSnap.val() !== false; // Default to true if not set
+
+        // If the current user is an admin and logging is disabled, skip logging.
+        if (userRole === 'administrator' && !isLoggingEnabled) {
+            return;
         }
+    } catch (error) {
+        console.error("Could not check admin logging setting:", error);
+        // Proceed with logging as a fallback
+    }
 
-
+    if (!currentUser) {
+        console.warn("Attempted to log activity without a current user.", action, details);
+        return;
+    }
+    const logEntry = {
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        userId: currentUser.uid,
+        userEmail: currentUser.email,
+        userName: userDisplayName, // Correctly uses the name from the database
+        action: action,
+        details: details,
+        device: details.device || getDeviceDetails(),
+        ip: await fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => data.ip).catch(() => 'Unknown')
+    };
+    try {
+        const logRef = database.ref('activityLogs').push();
+        await logRef.set(logEntry);
+    } catch (error) {
+        console.error("Error logging activity:", error, logEntry);
+    }
+}
         document.addEventListener("DOMContentLoaded", function () {
             // Screen elements
             const splashScreen = document.getElementById("splash-screen");
@@ -1998,6 +2009,24 @@ textarea::placeholder {
                     if (e.target === editUserModal) editUserModal.style.display = 'none';
                     if (e.target === editAttendanceModal) editAttendanceModal.style.display = 'none';
                 });
+                // Add this inside the DOMContentLoaded event listener
+const saveAdminLogSettingBtn = document.getElementById("save-admin-log-setting");
+if(saveAdminLogSettingBtn) {
+    saveAdminLogSettingBtn.addEventListener("click", function () {
+      const enableLogging = document.getElementById("admin-log-toggle").value === "true";
+      showLoader();
+      database.ref("settings/adminLogging").set(enableLogging)
+        .then(() => {
+          hideLoader();
+          showMessage('system-settings-success', "Administrator logging setting updated!");
+          logActivity('setting_change', { setting: 'adminLogging', value: enableLogging });
+        })
+        .catch((err) => {
+          hideLoader();
+          showMessage('system-settings-error', "Failed to save setting: " + err.message, false);
+        });
+    });
+}
             }
 
 
@@ -2965,6 +2994,11 @@ checkCorrectionWindow();
                 } catch (error) {
                     console.error("Error loading system settings:", error);
                 }
+                // Add this inside the loadSystemSettings function
+const adminLogSnap = await database.ref('settings/adminLogging').once('value');
+if (adminLogSnap.exists() && document.getElementById('admin-log-toggle')) {
+    document.getElementById('admin-log-toggle').value = adminLogSnap.val().toString();
+}
             }
             
             // --- Initialize App ---
@@ -3271,27 +3305,6 @@ document.getElementById("save-admin-log-setting").addEventListener("click", func
       alert("❌ Failed to save setting: " + err.message);
     });
 });
-function logActivity(action, details = {}) {
-  firebase.database().ref("settings/adminLogging").once("value").then(snapshot => {
-    const loggingEnabled = snapshot.val() !== false; // Default = true
-    const user = firebase.auth().currentUser;
-    if (!loggingEnabled && user && user.displayName?.toLowerCase().includes("administrator")) {
-      return; // Skip log for administrator if disabled
-    }
-
-    const logEntry = {
-      action,
-      details,
-      timestamp: Date.now(),
-      userEmail: user?.email || "Unknown",
-      userId: user?.uid || "Unknown",
-      userName: user?.displayName || "Unknown",
-      device: getDeviceDetails() // Optional helper
-    };
-
-    firebase.database().ref("activityLogs").push(logEntry);
-  });
-}
 function checkCorrectionWindow() {
   const classId = classSelectorMain.value;
   const date = new Date().toISOString().split('T')[0];
