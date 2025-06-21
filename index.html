@@ -1171,9 +1171,10 @@ textarea::placeholder {
   
   <div id="correction-feedback" class="success-message" style="display: none;"></div>
 </div>
-<p id="correction-denied-msg" style="display: none; color: #d9534f; font-weight: 600; margin-top: 15px;">
-  ⚠️ You don’t have permission to edit this record. Only the submitter, Principal, or Administrator can correct absentees.
+<p id="correction-denied-msg" style="display: none; color: red; font-weight: 600; margin-top: 15px;">
+  ❌ You don’t have permission to edit this attendance. Only the submitter, Principal, or Administrator can correct absentees within 5 hours.
 </p>
+
 
 
 
@@ -2519,21 +2520,35 @@ checkCorrectionWindow();
 auth.onAuthStateChanged(user => {
   if (user) {
     currentUser = user;
-    console.log("✅ Auth ready. User:", currentUser.email);
+    console.log("✅ Logged in:", currentUser.email);
 
-    // 🧠 Delay the correction panel check slightly after login
+    // ✅ Wait a moment to let DOM load
     setTimeout(() => {
-      const selectedClass = document.getElementById("attendance-class-selector").value;
-      const selectedDate = document.getElementById("date-selector-attendance").value;
+      const classSelect = document.getElementById("attendance-class-selector");
+      const dateInput = document.getElementById("date-selector-attendance");
 
-      console.log("🧪 Class & Date Check:", selectedClass, selectedDate);
+      if (!classSelect || !dateInput) {
+        console.warn("⚠️ Class or Date input missing.");
+        return;
+      }
 
+      // ✅ If no date, set today's date
+      if (!dateInput.value) {
+        dateInput.value = new Date().toISOString().split("T")[0];
+      }
+
+      const selectedClass = classSelect.value;
+      const selectedDate = dateInput.value;
+
+      console.log("📌 Loaded values:", selectedClass, selectedDate);
+
+      // ✅ Now call correction panel function
       if (selectedClass && selectedDate) {
         showCorrectionPanelIfAllowed(selectedClass, selectedDate);
       } else {
-        console.warn("⚠️ Class or date not selected. Correction panel check skipped.");
+        console.warn("⛔ Class or date not selected yet.");
       }
-    }, 300); // Small delay so elements are ready
+    }, 500); // wait half second after page reload
   }
 });
 
