@@ -1147,14 +1147,35 @@ textarea::placeholder {
                         <i class="fas fa-share-alt"></i> Save & Share
                     </button>
                     <!-- 🛠️ Correction Panel -->
-<div id="correction-ui" style="display: none; margin-top: 30px;">
-  <h3><i class="fas fa-tools"></i> Correction Panel (within 5 Hours)</h3>
-  <input type="text" id="corrected-rolls" placeholder="Enter roll numbers to add/remove (e.g. 2, 7, 15)">
-  <div class="btn-group" style="margin-top: 10px;">
-    <button id="add-rolls-btn" class="btn btn-success"><i class="fas fa-plus"></i> Add</button>
-    <button id="remove-rolls-btn" class="btn btn-danger"><i class="fas fa-minus"></i> Remove</button>
+<div id="correction-ui" class="card" style="display: none; margin-top: 30px;">
+  <h3 class="card-title"><i class="fas fa-tools"></i> Edit Absentees (within 5 hrs)</h3>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label for="corrected-rolls"><i class="fas fa-id-card"></i> Roll Numbers</label>
+      <input type="text" id="corrected-rolls" placeholder="Eg: 2, 7, 15 or 3 5 9">
+    </div>
+    <div class="form-group">
+      <label><i class="fas fa-eye"></i> Current Class</label>
+      <div id="selected-class-display" class="summary-card" style="padding: 10px; background: var(--gradient-secondary); color: white;">
+        No class selected
+      </div>
+    </div>
   </div>
+
+  <div class="btn-group">
+    <button id="add-rolls-btn" class="btn btn-success"><i class="fas fa-plus"></i> Add Absentees</button>
+    <button id="remove-rolls-btn" class="btn btn-danger"><i class="fas fa-minus"></i> Remove Absentees</button>
+    <button id="reset-rolls-btn" class="btn btn-secondary"><i class="fas fa-undo"></i> Reset Input</button>
+  </div>
+  
+  <div id="correction-feedback" class="success-message" style="display: none;"></div>
 </div>
+<p id="correction-denied-msg" style="display: none; color: #d9534f; font-weight: 600; margin-top: 15px;">
+  ⚠️ You don’t have permission to edit this record. Only the submitter, Principal, or Administrator can correct absentees.
+</p>
+
+
 
 
                 </div>
@@ -1230,6 +1251,7 @@ textarea::placeholder {
                     <div class="btn-group">
                         <button id="load-attendance-btn" class="btn btn-primary">
                             <i class="fas fa-search"></i> Load Attendance
+                        
                         </button>
                         
                     </div>
@@ -1977,6 +1999,22 @@ async function logActivity(action, details = {}) {
                     }
                 });
             }
+            const classSelector = document.getElementById("class-selector");
+const selectedClassDisplay = document.getElementById("selected-class-display");
+
+if (classSelector && selectedClassDisplay) {
+  classSelector.addEventListener("change", () => {
+    const selected = classSelector.value;
+    selectedClassDisplay.innerHTML = selected ? `<strong>${selected}</strong>` : "No class selected";
+  });
+
+  // Trigger on page load if default is already set
+  window.addEventListener("DOMContentLoaded", () => {
+    const selected = classSelector.value;
+    selectedClassDisplay.innerHTML = selected ? `<strong>${selected}</strong>` : "No class selected";
+  });
+}
+
             
             function setTodaysDateForDateInputs() {
                 const today = new Date().toISOString().split('T')[0];
@@ -2478,6 +2516,17 @@ checkCorrectionWindow();
                 const selectedClass = attendanceClassSelector.value;
                 const selectedDate = dateSelectorAttendance.value;
                 const errorElId = 'attendance-error'; // Assuming this ID exists for this section
+               auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    console.log("✅ Auth ready. User:", currentUser.email);
+    console.log("🧪 Calling correction check for:", selectedClass, selectedDate);
+    showCorrectionPanelIfAllowed(selectedClass, selectedDate);
+  } else {
+    console.warn("❌ User not signed in. Cannot check correction access.");
+  }
+});
+
                 
                 if (!selectedClass || !selectedDate) {
                     showMessage(errorElId, "Please select both class and date.", false); hideLoader(); return;
@@ -2564,6 +2613,60 @@ checkCorrectionWindow();
                 }
                 hideLoader();
             });
+function showCorrectionPanelIfAllowed(className, date) {
+  const correctionUI = document.getElementById("correction-ui");
+  const deniedMsg = document.getElementById("correction-denied-msg");
+
+  const sharedRef = database.ref(`sharedAbsentees/${className}/${date}`);
+  sharedRef.once('value')
+    .then(snapshot => {
+      const data = snapshot.val();
+
+      console.log("🔍 DEBUG LOG - Firebase snapshot:", data);
+
+      if (!data) {
+        console.warn("⚠️ No data found in DB for:", className, date);
+        correctionUI.style.display = "none";
+        deniedMsg.style.display = "block";
+        return;
+      }
+
+      const sharedBy = data.sharedBy;
+      const timestamp = data.timestamp;
+      const now = Date.now();
+
+      const FIVE_HOURS = 5 * 60 * 60 * 1000;
+      const isWithinFiveHours = (now - timestamp) <= FIVE_HOURS;
+      const isAllowedUser = currentUser?.email === sharedBy || ["principal", "administrator"].includes(userRole);
+
+      console.table({
+        "Current Time": now,
+        "Saved Timestamp": timestamp,
+        "Diff (ms)": now - timestamp,
+        "Is within 5 hours": isWithinFiveHours,
+        "Shared By": sharedBy,
+        "Logged In User": currentUser?.email,
+        "User Role": userRole,
+        "Allowed User": isAllowedUser
+      });
+
+      if (isWithinFiveHours && isAllowedUser) {
+        correctionUI.style.display = "block";
+        deniedMsg.style.display = "none";
+        console.log("✅ Correction UI SHOWN");
+      } else {
+        correctionUI.style.display = "none";
+        deniedMsg.style.display = "block";
+        console.log("⛔ Correction UI HIDDEN - Permission/Time check failed");
+      }
+    })
+    .catch(error => {
+      console.error("❌ Error loading correction access:", error);
+      correctionUI.style.display = "none";
+      deniedMsg.style.display = "block";
+    });
+}
+
 
             // --- Admin Panel - User Management ---
             let selectedRoleForNewUser = 'teacher'; 
