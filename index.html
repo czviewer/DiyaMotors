@@ -3347,6 +3347,14 @@ function handleLogoutAction() {
       loadAllUserDevices();
     });
   }
+    window.addEventListener("DOMContentLoaded", () => {
+  const dateInput = document.getElementById("date-selector-attendance");
+  if (dateInput && !dateInput.value) {
+    const today = new Date().toISOString().split("T")[0];
+    dateInput.value = today;
+  }
+});
+
 </script>
 
 <script>
