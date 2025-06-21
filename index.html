@@ -2516,16 +2516,22 @@ checkCorrectionWindow();
                 const selectedClass = attendanceClassSelector.value;
                 const selectedDate = dateSelectorAttendance.value;
                 const errorElId = 'attendance-error'; // Assuming this ID exists for this section
-               auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(user => {
   if (user) {
     currentUser = user;
     console.log("✅ Auth ready. User:", currentUser.email);
+
+    // ✅ GET selected class & date from dropdown inputs
+    const selectedClass = document.getElementById("attendance-class-selector").value;
+    const selectedDate = document.getElementById("date-selector-attendance").value;
+
     console.log("🧪 Calling correction check for:", selectedClass, selectedDate);
     showCorrectionPanelIfAllowed(selectedClass, selectedDate);
   } else {
     console.warn("❌ User not signed in. Cannot check correction access.");
   }
 });
+
 
                 
                 if (!selectedClass || !selectedDate) {
@@ -2616,58 +2622,57 @@ checkCorrectionWindow();
 function showCorrectionPanelIfAllowed(className, date) {
   const correctionUI = document.getElementById("correction-ui");
   const deniedMsg = document.getElementById("correction-denied-msg");
+  const selectedClassDisplay = document.getElementById("selected-class-display");
 
-  console.log("🔍 Step 1 - Triggered for:", className, date);
-  console.log("🔍 Step 2 - currentUser:", currentUser);
-  console.log("🔍 Step 3 - userRole:", userRole);
+  if (!className || !date || !correctionUI || !deniedMsg) {
+    console.warn("⚠️ Missing data or elements:", { className, date });
+    return;
+  }
 
   const sharedRef = database.ref(`sharedAbsentees/${className}/${date}`);
-  sharedRef.once('value')
-    .then(snapshot => {
-      const data = snapshot.val();
+  sharedRef.once('value').then(snapshot => {
+    const data = snapshot.val();
+    const now = Date.now();
 
-      if (!data) {
-        console.warn("⚠️ No shared data found.");
-        correctionUI.style.display = "none";
-        deniedMsg.style.display = "block";
-        return;
-      }
-
-      const sharedBy = data.sharedBy;
-      const timestamp = data.timestamp;
-      const now = Date.now();
-
-      const FIVE_HOURS = 5 * 60 * 60 * 1000;
-      const isWithinFiveHours = now - timestamp <= FIVE_HOURS;
-      const isAllowedUser = (currentUser?.email === sharedBy) || ["principal", "administrator"].includes(userRole);
-
-      // Final debug dump
-      console.table({
-        sharedBy,
-        currentUser: currentUser?.email,
-        userRole,
-        timestamp,
-        now,
-        timeDiff: now - timestamp,
-        isWithinFiveHours,
-        isAllowedUser
-      });
-
-      if (isWithinFiveHours && isAllowedUser) {
-        correctionUI.style.display = "block";
-        deniedMsg.style.display = "none";
-        console.log("✅ Correction panel SHOWN");
-      } else {
-        correctionUI.style.display = "none";
-        deniedMsg.style.display = "block";
-        console.warn("❌ Correction panel HIDDEN - not allowed/time expired");
-      }
-    })
-    .catch(error => {
-      console.error("🔥 Firebase read failed:", error);
+    if (!data) {
+      console.warn("❌ No shared data found.");
       correctionUI.style.display = "none";
       deniedMsg.style.display = "block";
+      return;
+    }
+
+    const { sharedBy, timestamp } = data;
+    const isWithin5Hours = now - timestamp <= 5 * 60 * 60 * 1000;
+    const isAllowed = currentUser?.email === sharedBy || ["administrator", "principal"].includes(userRole);
+
+    // Update the class display
+    selectedClassDisplay.innerText = className;
+
+    console.table({
+      className,
+      date,
+      sharedBy,
+      userEmail: currentUser?.email,
+      userRole,
+      timeDiff: now - timestamp,
+      isWithin5Hours,
+      isAllowed
     });
+
+    if (isWithin5Hours && isAllowed) {
+      correctionUI.style.display = "block";
+      deniedMsg.style.display = "none";
+      console.log("✅ Correction panel shown");
+    } else {
+      correctionUI.style.display = "none";
+      deniedMsg.style.display = "block";
+      console.log("⛔ Not allowed / time expired");
+    }
+  }).catch(err => {
+    console.error("🔥 Firebase read failed:", err);
+    correctionUI.style.display = "none";
+    deniedMsg.style.display = "block";
+  });
 }
 
             // --- Admin Panel - User Management ---
