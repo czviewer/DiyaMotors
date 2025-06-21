@@ -2521,17 +2521,21 @@ auth.onAuthStateChanged(user => {
     currentUser = user;
     console.log("✅ Auth ready. User:", currentUser.email);
 
-    // ✅ GET selected class & date from dropdown inputs
-    const selectedClass = document.getElementById("attendance-class-selector").value;
-    const selectedDate = document.getElementById("date-selector-attendance").value;
+    // 🧠 Delay the correction panel check slightly after login
+    setTimeout(() => {
+      const selectedClass = document.getElementById("attendance-class-selector").value;
+      const selectedDate = document.getElementById("date-selector-attendance").value;
 
-    console.log("🧪 Calling correction check for:", selectedClass, selectedDate);
-    showCorrectionPanelIfAllowed(selectedClass, selectedDate);
-  } else {
-    console.warn("❌ User not signed in. Cannot check correction access.");
+      console.log("🧪 Class & Date Check:", selectedClass, selectedDate);
+
+      if (selectedClass && selectedDate) {
+        showCorrectionPanelIfAllowed(selectedClass, selectedDate);
+      } else {
+        console.warn("⚠️ Class or date not selected. Correction panel check skipped.");
+      }
+    }, 300); // Small delay so elements are ready
   }
 });
-
 
                 
                 if (!selectedClass || !selectedDate) {
@@ -3347,7 +3351,7 @@ function handleLogoutAction() {
       loadAllUserDevices();
     });
   }
-    window.addEventListener("DOMContentLoaded", () => {
+  window.addEventListener("DOMContentLoaded", () => {
   const dateInput = document.getElementById("date-selector-attendance");
   if (dateInput && !dateInput.value) {
     const today = new Date().toISOString().split("T")[0];
