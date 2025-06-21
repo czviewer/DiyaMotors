@@ -2617,15 +2617,17 @@ function showCorrectionPanelIfAllowed(className, date) {
   const correctionUI = document.getElementById("correction-ui");
   const deniedMsg = document.getElementById("correction-denied-msg");
 
+  console.log("🔍 Step 1 - Triggered for:", className, date);
+  console.log("🔍 Step 2 - currentUser:", currentUser);
+  console.log("🔍 Step 3 - userRole:", userRole);
+
   const sharedRef = database.ref(`sharedAbsentees/${className}/${date}`);
   sharedRef.once('value')
     .then(snapshot => {
       const data = snapshot.val();
 
-      console.log("🔍 DEBUG LOG - Firebase snapshot:", data);
-
       if (!data) {
-        console.warn("⚠️ No data found in DB for:", className, date);
+        console.warn("⚠️ No shared data found.");
         correctionUI.style.display = "none";
         deniedMsg.style.display = "block";
         return;
@@ -2636,37 +2638,37 @@ function showCorrectionPanelIfAllowed(className, date) {
       const now = Date.now();
 
       const FIVE_HOURS = 5 * 60 * 60 * 1000;
-      const isWithinFiveHours = (now - timestamp) <= FIVE_HOURS;
-      const isAllowedUser = currentUser?.email === sharedBy || ["principal", "administrator"].includes(userRole);
+      const isWithinFiveHours = now - timestamp <= FIVE_HOURS;
+      const isAllowedUser = (currentUser?.email === sharedBy) || ["principal", "administrator"].includes(userRole);
 
+      // Final debug dump
       console.table({
-        "Current Time": now,
-        "Saved Timestamp": timestamp,
-        "Diff (ms)": now - timestamp,
-        "Is within 5 hours": isWithinFiveHours,
-        "Shared By": sharedBy,
-        "Logged In User": currentUser?.email,
-        "User Role": userRole,
-        "Allowed User": isAllowedUser
+        sharedBy,
+        currentUser: currentUser?.email,
+        userRole,
+        timestamp,
+        now,
+        timeDiff: now - timestamp,
+        isWithinFiveHours,
+        isAllowedUser
       });
 
       if (isWithinFiveHours && isAllowedUser) {
         correctionUI.style.display = "block";
         deniedMsg.style.display = "none";
-        console.log("✅ Correction UI SHOWN");
+        console.log("✅ Correction panel SHOWN");
       } else {
         correctionUI.style.display = "none";
         deniedMsg.style.display = "block";
-        console.log("⛔ Correction UI HIDDEN - Permission/Time check failed");
+        console.warn("❌ Correction panel HIDDEN - not allowed/time expired");
       }
     })
     .catch(error => {
-      console.error("❌ Error loading correction access:", error);
+      console.error("🔥 Firebase read failed:", error);
       correctionUI.style.display = "none";
       deniedMsg.style.display = "block";
     });
 }
-
 
             // --- Admin Panel - User Management ---
             let selectedRoleForNewUser = 'teacher'; 
