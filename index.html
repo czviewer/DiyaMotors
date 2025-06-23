@@ -373,20 +373,18 @@
 
         // Initialize reCAPTCHA
         function initRecaptcha() {
-            recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
+            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
                 'recaptcha-container',
                 {
                     size: 'invisible',
                     callback: () => {
-                        // This will be called when reCAPTCHA is solved
                         sendOtp();
                     }
                 },
                 auth
             );
 
-            // Now call render and log widgetId
-            recaptchaVerifier.render().then(function (widgetId) {
+            recaptchaVerifier.render().then(widgetId => {
                 console.log("🧪 reCAPTCHA rendered with widgetId:", widgetId);
             });
         }
