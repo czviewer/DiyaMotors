@@ -337,7 +337,11 @@
 
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp({
+            ...firebaseConfig,
+            databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app"
+        });
+
         const auth = firebase.auth();
 
         // DOM Elements
