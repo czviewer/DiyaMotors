@@ -464,7 +464,7 @@
             const email = document.getElementById("email").value.trim();
             const password = document.getElementById("password").value.trim();
             const step1Error = document.getElementById("step1Error");
-            const safeEmailKey = email.replaceAll(".", "_"); // ✅ Only once
+            const safeEmailKey = email.replace(/\./g, "_"); // ✅ Only once
 
             console.log("🧪 Safe key used:", safeEmailKey);
             step1Error.innerText = "";
