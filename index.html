@@ -464,7 +464,9 @@
             const email = document.getElementById("email").value.trim();
             const password = document.getElementById("password").value.trim();
             const step1Error = document.getElementById("step1Error");
+            const safeEmailKey = email.replaceAll(".", "_"); // ✅ Only once
 
+            console.log("🧪 Safe key used:", safeEmailKey);
             step1Error.innerText = "";
 
             console.log("👉 Email:", email);
@@ -473,9 +475,7 @@
             firebase.auth().signInWithEmailAndPassword(email, password)
                 .then((userCredential) => {
                     console.log("✅ Firebase auth success");
-
-                    const safeEmailKey = email.replaceAll(".", "_");
-                    console.log("📦 Fetching phone for:", safeEmailKey);
+                    console.log("📦 Fetching phone for:", safeEmailKey); // ✅ re-use
 
                     return firebase.database().ref("users/" + safeEmailKey).once("value");
                 })
@@ -490,7 +490,6 @@
                     const phone = userData.phone;
                     window.trustedPhoneNumber = phone;
 
-                    // Mask the phone for display
                     const masked = "xxxxxxx" + phone.slice(-2);
                     document.getElementById("masked-phone").innerText = masked;
 
