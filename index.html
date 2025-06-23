@@ -385,7 +385,10 @@
                 auth
             );
 
-            recaptchaVerifier.render();
+            // Now call render and log widgetId
+            recaptchaVerifier.render().then(function (widgetId) {
+                console.log("🧪 reCAPTCHA rendered with widgetId:", widgetId);
+            });
         }
 
         // Actually send OTP after recaptcha verification
