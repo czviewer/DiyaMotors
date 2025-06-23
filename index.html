@@ -9,7 +9,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <!-- reCAPTCHA -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
     <style>
@@ -345,6 +344,9 @@
         });
 
         const auth = firebase.auth();
+        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+            size: 'invisible'
+        });
 
         // DOM Elements
         const step1Indicator = document.getElementById('step1-indicator');
@@ -358,36 +360,10 @@
         const loader = document.getElementById('loader');
 
         // Recaptcha verifier
-        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
-            'recaptcha-container',
-            {
-                size: 'invisible',
-                callback: () => {
-                    sendOtp(); // Triggered after reCAPTCHA solved
-                }
-            },
-            auth
-        );
 
         let confirmationResult;
 
         // Initialize reCAPTCHA
-        function initRecaptcha() {
-            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
-                'recaptcha-container',
-                {
-                    size: 'invisible',
-                    callback: () => {
-                        sendOtp();
-                    }
-                },
-                auth
-            );
-
-            recaptchaVerifier.render().then(widgetId => {
-                console.log("🧪 reCAPTCHA rendered with widgetId:", widgetId);
-            });
-        }
 
         // Actually send OTP after recaptcha verification
         function sendOtp() {
@@ -507,7 +483,7 @@
                     document.getElementById("masked-phone").innerText = masked;
 
                     showStep(2);
-                    setTimeout(initRecaptcha, 300);
+
                 })
                 .catch((error) => {
                     console.error("❌ Error during login:", error);
