@@ -474,7 +474,7 @@
                 .then((userCredential) => {
                     console.log("✅ Firebase auth success");
 
-                    const safeEmailKey = email.replace(/\./g, "_");
+                    const safeEmailKey = email.replaceAll(".", "_");
                     console.log("📦 Fetching phone for:", safeEmailKey);
 
                     return firebase.database().ref("users/" + safeEmailKey).once("value");
