@@ -356,7 +356,17 @@
         const loader = document.getElementById('loader');
 
         // Recaptcha verifier
-        let recaptchaVerifier;
+       window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
+    'recaptcha-container',
+    {
+        size: 'invisible',
+        callback: () => {
+            sendOtp(); // Triggered after reCAPTCHA solved
+        }
+    },
+    auth
+);
+
         let confirmationResult;
 
         // Initialize reCAPTCHA
