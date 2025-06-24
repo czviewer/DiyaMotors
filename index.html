@@ -504,11 +504,10 @@
             window.showStep = showStep; // Expose to global scope for onclick attributes
 
             // Step 1: Handle Email/Password Login
+            // Step 1: Handle Email/Password Login
             function startLogin() {
                 const email = emailInput.value.trim();
                 const password = passwordInput.value.trim();
-                // safeEmailKey is not used for database lookup with user.uid, but keep for context if needed elsewhere.
-                // const safeEmailKey = email.replace(/[@.]/g, "_"); 
 
                 hideError(step1Error); // Clear previous errors
                 showLoader(true); // Show loader
@@ -525,6 +524,12 @@
                     .then((userCredential) => {
                         console.log("✅ Firebase auth success for user UID:", userCredential.user.uid);
                         const user = userCredential.user;
+
+                        // ✅ FIX: Initialize the regional database instance correctly
+                        // The database URL is already part of your firebaseConfig.
+                        const database = firebase.database(); // CORRECTED LINE
+
+                        // ✅ Fetch phone number using correct regional endpoint
                         console.log("📦 Fetching phone for UID:", user.uid);
                         return database.ref("users/" + user.uid).once("value");
                     })
@@ -637,4 +642,5 @@
         }); // End of DOMContentLoaded listener
     </script>
 </body>
+
 </html>
