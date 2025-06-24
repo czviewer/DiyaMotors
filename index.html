@@ -5,11 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Two-Step Login</title>
-    <!-- Firebase SDK - Recommended to keep these in the head for faster loading -->
+    <!-- Firebase SDK - Best to keep these in the head for faster loading -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-    <!-- reCAPTCHA - Also important to load early -->
+    <!-- reCAPTCHA API Script - Essential for the reCAPTCHA widget -->
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
     <style>
@@ -196,7 +196,7 @@
             background: #3aa8d0;
         }
 
-        /* Message Styling */
+        /* Message Styling - Using consistent class names with CSS */
         .error-message {
             color: var(--danger);
             background: rgba(247, 37, 133, 0.1);
@@ -218,7 +218,7 @@
         }
 
         /* reCAPTCHA specific styling */
-        #recaptcha-container {
+        #recaptcha-container { /* Ensure this ID matches the JS RecaptchaVerifier */
             margin: 20px 0;
             display: flex; /* Centers the reCAPTCHA widget */
             justify-content: center;
@@ -323,8 +323,8 @@
 
             <!-- Loader and message displays for Step 2 -->
             <div id="loader" class="loader"></div>
-            <div id="step2Error" class="error-message"></div>
-            <div id="step2-success" class="success-message"></div> <!-- Corrected ID: step2-success -->
+            <div id="step2Error" class="error-message"></div> <!-- Using error-message class -->
+            <div id="step2-success" class="success-message"></div> <!-- Using success-message class -->
 
             <button type="button" onclick="showStep(1)" class="btn back-btn">Back to Email/Password</button>
         </div>
@@ -354,21 +354,20 @@
             const auth = firebase.auth();
 
             // Cache DOM Elements for efficient access
-            // console.log statements added for debugging during development
-            const step1Indicator = document.getElementById('step1-indicator'); console.log('step1Indicator:', step1Indicator);
-            const step2Indicator = document.getElementById('step2-indicator'); console.log('step2Indicator:', step2Indicator);
-            const step1Form = document.getElementById('step1-form'); console.log('step1Form:', step1Form);
-            const step2Form = document.getElementById('step2-form'); console.log('step2Form:', step2Form);
-            const sendOtpBtn = document.getElementById('send-otp-btn'); console.log('sendOtpBtn:', sendOtpBtn);
-            const otpContainer = document.getElementById('otp-container'); console.log('otpContainer:', otpContainer);
-            const step1Error = document.getElementById("step1Error"); console.log('step1Error:', step1Error);
-            const step2Error = document.getElementById('step2Error'); console.log('step2Error:', step2Error);
-            const step2Success = document.getElementById('step2-success'); console.log('step2Success:', step2Success); // Corrected ID
-            const loader = document.getElementById('loader'); console.log('loader:', loader);
-            const maskedPhoneSpan = document.getElementById("masked-phone"); console.log('maskedPhoneSpan:', maskedPhoneSpan);
-            const emailInput = document.getElementById("email"); console.log('emailInput:', emailInput);
-            const passwordInput = document.getElementById("password"); console.log('passwordInput:', passwordInput);
-            const otpInput = document.getElementById("otp"); console.log('otpInput:', otpInput);
+            const step1Indicator = document.getElementById('step1-indicator');
+            const step2Indicator = document.getElementById('step2-indicator');
+            const step1Form = document.getElementById('step1-form');
+            const step2Form = document.getElementById('step2-form');
+            const sendOtpBtn = document.getElementById('send-otp-btn');
+            const otpContainer = document.getElementById('otp-container');
+            const step1Error = document.getElementById("step1Error");
+            const step2Error = document.getElementById('step2Error');
+            const step2Success = document.getElementById('step2-success');
+            const loader = document.getElementById('loader');
+            const maskedPhoneSpan = document.getElementById("masked-phone");
+            const emailInput = document.getElementById("email");
+            const passwordInput = document.getElementById("password");
+            const otpInput = document.getElementById("otp");
 
             // Global variables for Firebase auth results and reCAPTCHA
             let confirmationResult;
@@ -425,7 +424,7 @@
                         message = 'Invalid OTP. Please check the code and try again.';
                         break;
                     case 'auth/too-many-requests':
-                        message = 'Too many attempts. Please try again later.';
+                        message = 'Too many attempts. Please try again later. (This usually happens if reCAPTCHA isn\'t configured correctly or too many failed attempts.)';
                         break;
                     case 'auth/missing-phone-number':
                         message = 'Phone number missing from your profile. Please contact support.';
@@ -504,6 +503,8 @@
             function startLogin() {
                 const email = emailInput.value.trim();
                 const password = passwordInput.value.trim();
+                // safeEmailKey is not used for database lookup with user.uid, but keep for context if needed elsewhere.
+                // const safeEmailKey = email.replace(/[@.]/g, "_"); 
 
                 hideError(step1Error); // Clear previous errors
                 showLoader(true); // Show loader
@@ -568,7 +569,7 @@
                 }
 
                 if (appVerifier) {
-                    // Firebase signInWithPhoneNumber automatically handles reCAPTCHA verification when appVerifier is passed
+                    // This is the CORRECT way: signInWithPhoneNumber AUTOMATICALLY handles reCAPTCHA verification when appVerifier is passed
                     firebase.auth().signInWithPhoneNumber(phone, appVerifier)
                         .then((result) => {
                             confirmationResult = result; // Store the confirmation result for OTP verification
