@@ -276,12 +276,19 @@
         </div>
 
         <!-- Step 1: Email + Password -->
-        <div id="step1-form">
-            <input type="email" id="email" placeholder="Email" />
-            <input type="password" id="password" placeholder="Password" />
-            <button onclick="startLogin()">Next</button>
-            <div id="step1Error" class="error"></div>
+        <div id="step1-form" class="step-content form-container active">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="Email" />
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Password" />
+            </div>
+            <button class="btn" onclick="startLogin()">Next</button>
+            <div id="step1Error" class="error-message"></div>
         </div>
+
 
         <!-- Step 2: Phone OTP -->
         <div id="step2-form" style="display: none;">
@@ -355,7 +362,7 @@
             const appVerifier = window.recaptchaVerifier;
             document.getElementById("step2Error").innerText = "";
             document.getElementById("step2-success").innerText = "";
-            document.getElementById("loader").style.display = "block";
+            showLoader(true);
 
             firebase.auth().signInWithPhoneNumber(phone, appVerifier)
                 .then((confirmationResult) => {
@@ -367,7 +374,7 @@
                     document.getElementById("step2Error").innerText = "Failed to send OTP: " + error.message;
                 })
                 .finally(() => {
-                    document.getElementById("loader").style.display = "none";
+                    showLoader(false);
                 });
         }
 
@@ -486,8 +493,7 @@
 
             step2Error.innerText = "";
             step2Success.innerText = "";
-            document.getElementById("loader").style.display = "block";
-
+            showLoader(true)
             window.confirmationResult.confirm(code)
                 .then((result) => {
                     step2Success.innerText = "Verification successful! Redirecting...";
@@ -502,7 +508,7 @@
                     step2Error.style.display = "block";
                 })
                 .finally(() => {
-                    document.getElementById("loader").style.display = "none";
+                    showLoader(false)
                 });
         }
 
