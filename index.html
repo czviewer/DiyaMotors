@@ -520,6 +520,7 @@
                     step1Error.innerText = error.message;
                 });
         }
+        window.startLogin = startLogin;
 
         function verifyOtp() {
             const code = document.getElementById("otp").value.trim();
@@ -551,7 +552,8 @@
                     showLoader(false)
                 });
         }
-
+        window.startLogin = startLogin;
+        window.verifyOtp = verifyOtp;
     </script>
 </body>
 
