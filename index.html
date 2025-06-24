@@ -1,292 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Two-Step Login</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
-    <style>
-        :root {
-            --primary: #4361ee;
-            --secondary: #3f37c9;
-            --success: #4cc9f0;
-            --danger: #f72585;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --border: #dee2e6;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 500px;
-            width: 100%;
-            background: white;
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .header {
-            background: var(--primary);
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 16px;
-        }
-
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            padding: 20px 0;
-            background: #f0f4f8;
-        }
-
-        .step {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: var(--gray);
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            margin: 0 10px;
-            position: relative;
-            transition: background 0.3s ease;
-        }
-
-        .step.active {
-            background: var(--primary);
-        }
-
-        .step.completed {
-            background: var(--success);
-        }
-
-        .step::before {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 3px;
-            background: var(--gray);
-            right: -20px;
-        }
-
-        .step:last-child::before {
-            display: none;
-        }
-
-        .step-content {
-            padding: 30px;
-        }
-
-        .form-container {
-            display: none;
-        }
-
-        .form-container.active {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: var(--dark);
-        }
-
-        input {
-            width: 100%;
-            padding: 14px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-        }
-
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s ease;
-            margin-top: 10px;
-        }
-
-        .btn:hover {
-            background: var(--secondary);
-        }
-
-        .btn-otp {
-            background: var(--success);
-        }
-
-        .btn-otp:hover {
-            background: #3aa8d0;
-        }
-
-        .error-message {
-            color: var(--danger);
-            background: rgba(247, 37, 133, 0.1);
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 14px;
-            display: none;
-        }
-
-        .success-message {
-            color: #2a9d8f;
-            background: rgba(42, 157, 143, 0.1);
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 14px;
-            display: none;
-        }
-
-        .recaptcha-container {
-            margin: 20px 0;
-            display: flex;
-            justify-content: center;
-        }
-
-        .loader {
-            display: none;
-            border: 4px solid rgba(67, 97, 238, 0.2);
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto 0;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Secure Login System</h1>
-            <p>Two-step authentication for enhanced security</p>
-        </div>
-
-        <div class="step-indicator">
-            <div class="step active" id="step1-indicator">1</div>
-            <div class="step" id="step2-indicator">2</div>
-        </div>
-
-        <div id="step1-form" class="step-content form-container active">
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" placeholder="your@email.com" />
-            </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" placeholder="Your Password" />
-            </div>
-            <button class="btn" onclick="startLogin()">Next</button>
-            <div id="step1Error" class="error-message"></div>
-        </div>
-
-
-        <div id="step2-form" class="step-content form-container">
-            <p>An OTP will be sent to the phone number ending in <strong><span id="masked-phone">...</span></strong></p>
-            <div id="recaptcha-container"></div>
-            
-            <div class="form-group">
-                <button class="btn btn-otp" id="send-otp-btn" onclick="sendOtp()">Send OTP</button>
-            </div>
-            
-            <div id="otp-container" style="display: none;">
-                <div class="form-group">
-                    <label for="otp">Enter OTP</label>
-                    <input type="text" id="otp" placeholder="6-digit code" />
-                </div>
-                <div class="form-group">
-                    <button class="btn" onclick="verifyOtp()">Verify & Login</button>
-                </div>
-            </div>
-            
-            <div id="loader" class="loader"></div>
-            <div id="step2Error" class="error-message"></div>
-            <div id="step2Success" class="success-message"></div>
-        </div>
-    </div>
-
-
-
 <script>
     // Firebase configuration - REPLACE WITH YOUR OWN CONFIG
     const firebaseConfig = {
@@ -300,8 +11,6 @@
         measurementId: "G-M992F46DFD"
     };
 
-
-
     // Initialize Firebase
     firebase.initializeApp({
         ...firebaseConfig,
@@ -309,20 +18,6 @@
     });
 
     const auth = firebase.auth();
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-        size: 'normal',
-        callback: function (response) {
-            console.log('✅ reCAPTCHA solved');
-        },
-        'expired-callback': function () {
-            console.warn('⚠️ reCAPTCHA expired');
-        }
-    });
-    window.recaptchaVerifier.render().then(function (widgetId) {
-        window.recaptchaWidgetId = widgetId;
-    });
-
-
 
     // DOM Elements
     const step1Indicator = document.getElementById('step1-indicator');
@@ -336,41 +31,49 @@
     const step2Success = document.getElementById('step2-success');
     const loader = document.getElementById('loader');
 
-
-    // Recaptcha verifier
-
     let confirmationResult;
+    // window.recaptchaVerifier and window.recaptchaWidgetId will be initialized in showStep(2)
 
-    // Initialize reCAPTCHA
-
-    // Actually send OTP after recaptcha verification
+    // Function to send OTP
     function sendOtp() {
         const phone = window.trustedPhoneNumber;
-        const appVerifier = window.recaptchaVerifier;
+        const appVerifier = window.recaptchaVerifier; // This will be set by showStep(2)
 
         step2Error.innerText = "";
         step2Success.innerText = "";
         showLoader(true);
 
-        if (window.recaptchaVerifier) {
-            window.recaptchaVerifier.verify().then(() => {
-                return firebase.auth().signInWithPhoneNumber(phone, appVerifier);
-            }).then((confirmationResult) => {
-                window.confirmationResult = confirmationResult;
-                otpContainer.style.display = "block";
-                step2Success.innerText = "OTP sent successfully.";
-            }).catch((error) => {
-                console.error("❌ OTP send failed:", error);
-                step2Error.innerText = "Failed to send OTP: " + error.message;
-                grecaptcha.reset(window.recaptchaWidgetId); // 🔁 Reset if needed
-            }).finally(() => {
-                showLoader(false);
-            });
+        if (!phone) {
+            step2Error.innerText = "Phone number not available. Please go back to Step 1.";
+            showLoader(false);
+            return;
+        }
+
+        if (appVerifier && appVerifier.verify) { // Ensure appVerifier exists and has verify method
+             // Firebase signInWithPhoneNumber automatically handles reCAPTCHA verification
+             firebase.auth().signInWithPhoneNumber(phone, appVerifier)
+                .then((result) => {
+                    window.confirmationResult = result;
+                    otpContainer.style.display = "block";
+                    sendOtpBtn.style.display = "none"; // Hide send OTP button after sending
+                    step2Success.innerText = "OTP sent successfully. Please enter it below.";
+                    step2Success.style.display = "block";
+                    grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA after sending OTP
+                })
+                .catch((error) => {
+                    console.error("❌ OTP send failed:", error);
+                    handleAuthError(step2Error, error);
+                    grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA on failure
+                })
+                .finally(() => {
+                    showLoader(false);
+                });
         } else {
-            step2Error.innerText = "reCAPTCHA not ready. Please reload the page.";
+            step2Error.innerText = "reCAPTCHA is not ready. Please ensure your internet connection is stable and try again.";
             showLoader(false);
         }
     }
+    window.sendOtp = sendOtp; // Make it globally accessible
 
     // Show different step in the UI
     function showStep(stepNumber) {
@@ -379,6 +82,10 @@
             step2Indicator.classList.remove('active', 'completed');
             step1Form.classList.add('active');
             step2Form.classList.remove('active');
+            // Reset reCAPTCHA if coming back to step 1
+            if (window.recaptchaWidgetId) {
+                grecaptcha.reset(window.recaptchaWidgetId);
+            }
         } else if (stepNumber === 2) {
             step1Indicator.classList.remove('active');
             step1Indicator.classList.add('completed');
@@ -386,23 +93,50 @@
             step1Form.classList.remove('active');
             step2Form.classList.add('active');
 
-            // ✅ Initialize reCAPTCHA only when Step 2 is shown
+            // Initialize reCAPTCHA only when Step 2 is shown and not already initialized
             if (!window.recaptchaVerifier) {
+                console.log("Initializing reCAPTCHA for step 2...");
                 window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                    size: 'normal',
+                    size: 'normal', // 'invisible' can also be used for a less intrusive experience
                     callback: (response) => {
-                        console.log("✅ reCAPTCHA solved");
+                        console.log("✅ reCAPTCHA solved by user interaction or automatically.");
+                        // This callback fires when the user successfully solves the reCAPTCHA.
+                        // You can now proceed to send the OTP if the button was clicked
+                        // and this was the last step needed.
                     },
                     'expired-callback': () => {
                         console.warn("⚠️ reCAPTCHA expired, resetting...");
+                        grecaptcha.reset(window.recaptchaWidgetId);
                     }
                 });
                 window.recaptchaVerifier.render().then((widgetId) => {
                     window.recaptchaWidgetId = widgetId;
+                    console.log("reCAPTCHA rendered with widget ID:", widgetId);
+                }).catch(error => {
+                    console.error("Error rendering reCAPTCHA:", error);
+                    step2Error.innerText = "Failed to load reCAPTCHA. Please check your internet connection.";
+                    step2Error.style.display = "block";
                 });
+            } else {
+                console.log("reCAPTCHA already initialized for step 2.");
+                // If recaptchaVerifier already exists, ensure it's rendered if it was previously reset.
+                // This might be redundant if the container is always visible in step 2.
+                // grecaptcha.render(window.recaptchaWidgetId, {
+                //     sitekey: "YOUR_RECAPTCHA_SITE_KEY", // You might need to specify the site key here again if re-rendering
+                //     size: 'normal',
+                //     callback: (response) => { console.log("reCAPTCHA solved on re-render"); },
+                //     'expired-callback': () => { grecaptcha.reset(window.recaptchaWidgetId); }
+                // });
             }
+            // Reset state for step 2
+            otpContainer.style.display = "none";
+            sendOtpBtn.style.display = "block";
+            hideError(step2Error);
+            hideError(step2Success);
+            showLoader(false);
         }
     }
+    window.showStep = showStep; // Make it globally accessible
 
     // Display error message
     function showError(element, message) {
@@ -438,25 +172,45 @@
                 message = 'Incorrect password';
                 break;
             case 'auth/invalid-phone-number':
-                message = 'Invalid phone number format';
+                message = 'Invalid phone number format. Please check your database entry.';
                 break;
             case 'auth/invalid-verification-code':
-                message = 'Invalid verification code';
+                message = 'Invalid verification code.';
                 break;
             case 'auth/too-many-requests':
                 message = 'Too many attempts. Please try again later.';
                 break;
+            case 'auth/missing-phone-number':
+                message = 'Missing phone number. Please ensure your account has a phone number registered.';
+                break;
+            case 'auth/web-context-unauthorized':
+                message = 'Web context unauthorized. Ensure your domain is authorized in Firebase console.';
+                break;
+            case 'auth/captcha-check-failed':
+            case 'auth/internal-error': // Often related to reCAPTCHA or network issues
+                message = 'Security check failed. Please refresh the page and try again.';
+                break;
+            default:
+                message = error.message || message;
+                break;
         }
-
         showError(element, message);
     }
+
     function startLogin() {
         const email = document.getElementById("email").value.trim();
         const password = document.getElementById("password").value.trim();
-        // const safeEmailKey = email.replace(/[@.]/g, "_"); // This line is no longer needed
 
-        console.log("👉 Email:", email);
-        console.log("👉 Password:", password);
+        hideError(step1Error);
+        showLoader(true); // Show loader for login attempt
+
+        if (!email || !password) {
+            showError(step1Error, "Please enter both email and password.");
+            showLoader(false);
+            return;
+        }
+
+        console.log("👉 Attempting to sign in with Email:", email);
 
         firebase.auth().signInWithEmailAndPassword(email, password)
             .then((userCredential) => {
@@ -472,58 +226,62 @@
                 console.log("📄 User data from DB:", userData);
 
                 if (!userData || !userData.phone) {
-                    throw new Error("Phone number not found for this user.");
+                    throw new Error("Phone number not found for this user in the database. Please ensure it's linked to this account's UID.");
                 }
 
                 const phone = userData.phone;
                 window.trustedPhoneNumber = phone;
 
-                const masked = "xxxxxxx" + phone.slice(-2);
+                // Mask phone number for display
+                const masked = phone.length > 2 ? "xxxxxxx" + phone.slice(-2) : phone;
                 document.getElementById("masked-phone").innerText = masked;
 
-                showStep(2);
-
+                showStep(2); // Proceed to step 2 after successfully getting phone
             })
             .catch((error) => {
                 console.error("❌ Error during login:", error);
-                step1Error.innerText = error.message;
+                handleAuthError(step1Error, error); // Use handleAuthError for detailed messages
+            })
+            .finally(() => {
+                showLoader(false); // Hide loader regardless of success or failure
             });
     }
-    window.startLogin = startLogin;
+    window.startLogin = startLogin; // Make it globally accessible
 
     function verifyOtp() {
         const code = document.getElementById("otp").value.trim();
         const step2Success = document.getElementById("step2-success");
 
+        hideError(step2Error);
+        hideError(step2Success);
+
         if (!code || code.length !== 6) {
-            step2Error.innerText = "Please enter a valid 6-digit OTP.";
-            step2Error.style.display = "block";
+            showError(step2Error, "Please enter a valid 6-digit OTP.");
             return;
         }
 
-        step2Error.innerText = "";
-        step2Success.innerText = "";
-        showLoader(true)
-        window.confirmationResult.confirm(code)
-            .then((result) => {
-                step2Success.innerText = "Verification successful! Redirecting...";
-                step2Success.style.display = "block";
-
-                setTimeout(() => {
-                    window.location.href = "dashboard.html";
-                }, 1500);
-            })
-            .catch((error) => {
-                step2Error.innerText = "Invalid OTP. Please try again.";
-                step2Error.style.display = "block";
-            })
-            .finally(() => {
-                showLoader(false)
-            });
+        showLoader(true);
+        if (window.confirmationResult) {
+            window.confirmationResult.confirm(code)
+                .then((result) => {
+                    step2Success.innerText = "Verification successful! Redirecting...";
+                    showError(step2Success, step2Success.innerText); // Re-use showError for success messages too
+                    // Optionally, you might want to sign out if this is a temporary login or manage session
+                    setTimeout(() => {
+                        window.location.href = "dashboard.html";
+                    }, 1500);
+                })
+                .catch((error) => {
+                    console.error("❌ OTP verification failed:", error);
+                    handleAuthError(step2Error, error);
+                })
+                .finally(() => {
+                    showLoader(false);
+                });
+        } else {
+            showError(step2Error, "No OTP request pending. Please click 'Send OTP' first.");
+            showLoader(false);
+        }
     }
-    window.startLogin = startLogin;
-    window.verifyOtp = verifyOtp;
+    window.verifyOtp = verifyOtp; // Make it globally accessible
 </script>
-</body>
-
-</html>
