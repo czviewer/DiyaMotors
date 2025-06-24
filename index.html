@@ -293,7 +293,7 @@
         <!-- Step 2: Phone OTP -->
         <div id="step2-form" class="step-content form-container">
             <p>OTP will be sent to <strong><span id="masked-phone">loading...</span></strong></p>
-                <div id="recaptcha-container" style="margin-top: 20px; display: flex; justify-content: center;"></div>
+            <div id="recaptcha-container" style="margin-top: 20px; display: flex; justify-content: center;"></div>
             <div class="form-group">
                 <button class="btn btn-otp" id="send-otp-btn" onclick="sendOtp()">Send OTP</button>
             </div>
@@ -377,158 +377,184 @@
         function sendOtp() {
             const phone = window.trustedPhoneNumber;
             const appVerifier = window.recaptchaVerifier;
-            document.getElementById("step2Error").innerText = "";
-            document.getElementById("step2-success").innerText = "";
-            showLoader(true);
-
-            firebase.auth().signInWithPhoneNumber(phone, appVerifier)
-                .then((confirmationResult) => {
-                    window.confirmationResult = confirmationResult;
-                    document.getElementById("otp-container").style.display = "block";
-                    document.getElementById("step2-success").innerText = "OTP sent successfully.";
-                })
-                .catch((error) => {
-                    document.getElementById("step2Error").innerText = "Failed to send OTP: " + error.message;
-                })
-                .finally(() => {
-                    showLoader(false);
-                });
-        }
-
-        // Show different step in the UI
-        function showStep(stepNumber) {
-            if (stepNumber === 1) {
-                step1Indicator.classList.add('active');
-                step2Indicator.classList.remove('active', 'completed');
-                step1Form.classList.add('active');
-                step2Form.classList.remove('active');
-            } else if (stepNumber === 2) {
-                step1Indicator.classList.remove('active');
-                step1Indicator.classList.add('completed');
-                step2Indicator.classList.add('active');
-                step1Form.classList.remove('active');
-                step2Form.classList.add('active'); // 👈 This must work because now form has .form-container
-            }
-        }
-
-
-        // Display error message
-        function showError(element, message) {
-            element.textContent = message;
-            element.style.display = 'block';
-        }
-
-        // Hide error message
-        function hideError(element) {
-            element.style.display = 'none';
-        }
-
-        // Show/hide loader
-        function showLoader(show) {
-            loader.style.display = show ? 'block' : 'none';
-        }
-
-        // Handle Firebase authentication errors
-        function handleAuthError(element, error) {
-            let message = 'An error occurred. Please try again.';
-
-            switch (error.code) {
-                case 'auth/invalid-email':
-                    message = 'Invalid email format';
-                    break;
-                case 'auth/user-disabled':
-                    message = 'This account has been disabled';
-                    break;
-                case 'auth/user-not-found':
-                    message = 'User not found';
-                    break;
-                case 'auth/wrong-password':
-                    message = 'Incorrect password';
-                    break;
-                case 'auth/invalid-phone-number':
-                    message = 'Invalid phone number format';
-                    break;
-                case 'auth/invalid-verification-code':
-                    message = 'Invalid verification code';
-                    break;
-                case 'auth/too-many-requests':
-                    message = 'Too many attempts. Please try again later.';
-                    break;
-            }
-
-            showError(element, message);
-        }
-        function startLogin() {
-            const email = document.getElementById("email").value.trim();
-            const password = document.getElementById("password").value.trim();
-            const safeEmailKey = email.replace(/[@.]/g, "_");
-
-            console.log("🧪 Safe key used:", safeEmailKey);
-            step1Error.innerText = "";
-
-            console.log("👉 Email:", email);
-            console.log("👉 Password:", password);
-
-            firebase.auth().signInWithEmailAndPassword(email, password)
-                .then((userCredential) => {
-                    console.log("✅ Firebase auth success");
-                    console.log("📦 Fetching phone for:", safeEmailKey); // ✅ re-use
-
-                    return firebase.database().ref("users/" + safeEmailKey).once("value");
-                })
-                .then(snapshot => {
-                    const userData = snapshot.val();
-                    console.log("📄 User data from DB:", userData);
-
-                    if (!userData || !userData.phone) {
-                        throw new Error("Phone number not found for this user.");
-                    }
-
-                    const phone = userData.phone;
-                    window.trustedPhoneNumber = phone;
-
-                    const masked = "xxxxxxx" + phone.slice(-2);
-                    document.getElementById("masked-phone").innerText = masked;
-
-                    showStep(2);
-
-                })
-                .catch((error) => {
-                    console.error("❌ Error during login:", error);
-                    step1Error.innerText = error.message;
-                });
-        }
-
-        function verifyOtp() {
-            const code = document.getElementById("otp").value.trim();
-            const step2Success = document.getElementById("step2-success");
-
-            if (!code || code.length !== 6) {
-                step2Error.innerText = "Please enter a valid 6-digit OTP.";
-                step2Error.style.display = "block";
-                return;
-            }
 
             step2Error.innerText = "";
             step2Success.innerText = "";
-            showLoader(true)
-            window.confirmationResult.confirm(code)
-                .then((result) => {
-                    step2Success.innerText = "Verification successful! Redirecting...";
-                    step2Success.style.display = "block";
+            showLoader(true);
 
-                    setTimeout(() => {
-                        window.location.href = "dashboard.html";
-                    }, 1500);
-                })
-                .catch((error) => {
-                    step2Error.innerText = "Invalid OTP. Please try again.";
+            if (window.recaptchaVerifier) {
+                firebase.auth().signInWithPhoneNumber(phone, appVerifier)
+                    .then((confirmationResult) => {
+                        window.confirmationResult = confirmationResult;
+                        otpContainer.style.display = "block";
+                        step2Success.innerText = "OTP sent successfully.";
+                        step2Success.style.display = "block";
+                    })
+                    .catch((error) => {
+                        console.error("❌ OTP send failed:", error);
+                        step2Error.innerText = "Failed to send OTP: " + error.message;
+                        step2Error.style.display = "block";
+                        grecaptcha.reset(window.recaptchaWidgetId); // Only reset if needed
+                    })
+                    .finally(() => {
+                        showLoader(false);
+                    });
+            } else {
+                step2Error.innerText = "reCAPTCHA not ready. Please reload the page.";
+                step2Error.style.display = "block";
+                showLoader(false);
+            }
+
+
+            // Show different step in the UI
+            function showStep(stepNumber) {
+                if (stepNumber === 1) {
+                    step1Indicator.classList.add('active');
+                    step2Indicator.classList.remove('active', 'completed');
+                    step1Form.classList.add('active');
+                    step2Form.classList.remove('active');
+                } else if (stepNumber === 2) {
+                    step1Indicator.classList.remove('active');
+                    step1Indicator.classList.add('completed');
+                    step2Indicator.classList.add('active');
+                    step1Form.classList.remove('active');
+                    step2Form.classList.add('active');
+
+                    // ✅ Initialize reCAPTCHA only when Step 2 is shown
+                    if (!window.recaptchaVerifier) {
+                        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                            size: 'normal',
+                            callback: (response) => {
+                                console.log("✅ reCAPTCHA solved");
+                            },
+                            'expired-callback': () => {
+                                console.warn("⚠️ reCAPTCHA expired, resetting...");
+                            }
+                        });
+                        window.recaptchaVerifier.render().then((widgetId) => {
+                            window.recaptchaWidgetId = widgetId;
+                        });
+                    }
+                }
+            }
+
+            // Display error message
+            function showError(element, message) {
+                element.textContent = message;
+                element.style.display = 'block';
+            }
+
+            // Hide error message
+            function hideError(element) {
+                element.style.display = 'none';
+            }
+
+            // Show/hide loader
+            function showLoader(show) {
+                loader.style.display = show ? 'block' : 'none';
+            }
+
+            // Handle Firebase authentication errors
+            function handleAuthError(element, error) {
+                let message = 'An error occurred. Please try again.';
+
+                switch (error.code) {
+                    case 'auth/invalid-email':
+                        message = 'Invalid email format';
+                        break;
+                    case 'auth/user-disabled':
+                        message = 'This account has been disabled';
+                        break;
+                    case 'auth/user-not-found':
+                        message = 'User not found';
+                        break;
+                    case 'auth/wrong-password':
+                        message = 'Incorrect password';
+                        break;
+                    case 'auth/invalid-phone-number':
+                        message = 'Invalid phone number format';
+                        break;
+                    case 'auth/invalid-verification-code':
+                        message = 'Invalid verification code';
+                        break;
+                    case 'auth/too-many-requests':
+                        message = 'Too many attempts. Please try again later.';
+                        break;
+                }
+
+                showError(element, message);
+            }
+            function startLogin() {
+                const email = document.getElementById("email").value.trim();
+                const password = document.getElementById("password").value.trim();
+                const safeEmailKey = email.replace(/[@.]/g, "_");
+
+                console.log("🧪 Safe key used:", safeEmailKey);
+                step1Error.innerText = "";
+
+                console.log("👉 Email:", email);
+                console.log("👉 Password:", password);
+
+                firebase.auth().signInWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        console.log("✅ Firebase auth success");
+                        console.log("📦 Fetching phone for:", safeEmailKey); // ✅ re-use
+
+                        return firebase.database().ref("users/" + safeEmailKey).once("value");
+                    })
+                    .then(snapshot => {
+                        const userData = snapshot.val();
+                        console.log("📄 User data from DB:", userData);
+
+                        if (!userData || !userData.phone) {
+                            throw new Error("Phone number not found for this user.");
+                        }
+
+                        const phone = userData.phone;
+                        window.trustedPhoneNumber = phone;
+
+                        const masked = "xxxxxxx" + phone.slice(-2);
+                        document.getElementById("masked-phone").innerText = masked;
+
+                        showStep(2);
+
+                    })
+                    .catch((error) => {
+                        console.error("❌ Error during login:", error);
+                        step1Error.innerText = error.message;
+                    });
+            }
+
+            function verifyOtp() {
+                const code = document.getElementById("otp").value.trim();
+                const step2Success = document.getElementById("step2-success");
+
+                if (!code || code.length !== 6) {
+                    step2Error.innerText = "Please enter a valid 6-digit OTP.";
                     step2Error.style.display = "block";
-                })
-                .finally(() => {
-                    showLoader(false)
-                });
-        }
+                    return;
+                }
+
+                step2Error.innerText = "";
+                step2Success.innerText = "";
+                showLoader(true)
+                window.confirmationResult.confirm(code)
+                    .then((result) => {
+                        step2Success.innerText = "Verification successful! Redirecting...";
+                        step2Success.style.display = "block";
+
+                        setTimeout(() => {
+                            window.location.href = "dashboard.html";
+                        }, 1500);
+                    })
+                    .catch((error) => {
+                        step2Error.innerText = "Invalid OTP. Please try again.";
+                        step2Error.style.display = "block";
+                    })
+                    .finally(() => {
+                        showLoader(false)
+                    });
+            }
 
     </script>
 </body>
