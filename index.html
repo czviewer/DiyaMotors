@@ -264,11 +264,11 @@
         <div id="step2-form" class="step-content form-container">
             <p>An OTP will be sent to the phone number ending in <strong><span id="masked-phone">...</span></strong></p>
             <div id="recaptcha-container"></div>
-            
+
             <div class="form-group">
                 <button class="btn btn-otp" id="send-otp-btn" onclick="sendOtp()">Send OTP</button>
             </div>
-            
+
             <div id="otp-container" style="display: none;">
                 <div class="form-group">
                     <label for="otp">Enter OTP</label>
@@ -278,7 +278,7 @@
                     <button class="btn" onclick="verifyOtp()">Verify & Login</button>
                 </div>
             </div>
-            
+
             <div id="loader" class="loader"></div>
             <div id="step2Error" class="error-message"></div>
             <div id="step2Success" class="success-message"></div>
@@ -287,293 +287,293 @@
 
 
 
-<script>
-    // Firebase configuration - REPLACE WITH YOUR OWN CONFIG
-    const firebaseConfig = {
-        apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
-        authDomain: "diya-motors-tracker.firebaseapp.com",
-        databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "diya-motors-tracker",
-        storageBucket: "diya-motors-tracker.appspot.com",
-        messagingSenderId: "863309961024",
-        appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
-        measurementId: "G-M992F46DFD"
-    };
+    <script>
+        // Firebase configuration - REPLACE WITH YOUR OWN CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
+            authDomain: "diya-motors-tracker.firebaseapp.com",
+            databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "diya-motors-tracker",
+            storageBucket: "diya-motors-tracker.appspot.com",
+            messagingSenderId: "863309961024",
+            appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
+            measurementId: "G-M992F46DFD"
+        };
 
-    // Initialize Firebase
-    firebase.initializeApp({
-        ...firebaseConfig,
-        databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app"
-    });
+        // Initialize Firebase
+        firebase.initializeApp({
+            ...firebaseConfig,
+            databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app"
+        });
 
-    const auth = firebase.auth();
+        const auth = firebase.auth();
 
-    // DOM Elements
-    const step1Indicator = document.getElementById('step1-indicator');
-    const step2Indicator = document.getElementById('step2-indicator');
-    const step1Form = document.getElementById('step1-form');
-    const step2Form = document.getElementById('step2-form');
-    const sendOtpBtn = document.getElementById('send-otp-btn');
-    const otpContainer = document.getElementById('otp-container');
-    const step1Error = document.getElementById("step1Error");
-    const step2Error = document.getElementById('step2Error');
-    const step2Success = document.getElementById('step2-success'); // Corrected ID usage
-    const loader = document.getElementById('loader');
+        // DOM Elements
+        const step1Indicator = document.getElementById('step1-indicator');
+        const step2Indicator = document.getElementById('step2-indicator');
+        const step1Form = document.getElementById('step1-form');
+        const step2Form = document.getElementById('step2-form');
+        const sendOtpBtn = document.getElementById('send-otp-btn');
+        const otpContainer = document.getElementById('otp-container');
+        const step1Error = document.getElementById("step1Error");
+        const step2Error = document.getElementById('step2Error');
+        const step2Success = document.getElementById('step2-success'); // Corrected ID usage
+        const loader = document.getElementById('loader');
 
-    let confirmationResult;
-    // window.recaptchaVerifier and window.recaptchaWidgetId will be initialized in showStep(2)
+        let confirmationResult;
+        // window.recaptchaVerifier and window.recaptchaWidgetId will be initialized in showStep(2)
 
-    // Function to send OTP
-    function sendOtp() {
-        const phone = window.trustedPhoneNumber;
-        const appVerifier = window.recaptchaVerifier; // This will be set by showStep(2)
+        // Function to send OTP
+        function sendOtp() {
+            const phone = window.trustedPhoneNumber;
+            const appVerifier = window.recaptchaVerifier; // This will be set by showStep(2)
 
-        hideError(step2Error);
-        hideError(step2Success); // Use hideError for success too
-        showLoader(true);
-
-        if (!phone) {
-            showError(step2Error, "Phone number not available. Please go back to Step 1.");
-            showLoader(false);
-            return;
-        }
-
-        if (appVerifier && appVerifier.verify) { // Ensure appVerifier exists and has verify method
-             // Firebase signInWithPhoneNumber automatically handles reCAPTCHA verification
-             firebase.auth().signInWithPhoneNumber(phone, appVerifier)
-                .then((result) => {
-                    window.confirmationResult = result;
-                    otpContainer.style.display = "block";
-                    sendOtpBtn.style.display = "none"; // Hide send OTP button after sending
-                    showError(step2Success, "OTP sent successfully. Please enter it below."); // Use showError for success
-                    grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA after sending OTP
-                })
-                .catch((error) => {
-                    console.error("❌ OTP send failed:", error);
-                    handleAuthError(step2Error, error);
-                    grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA on failure
-                })
-                .finally(() => {
-                    showLoader(false);
-                });
-        } else {
-            showError(step2Error, "reCAPTCHA is not ready. Please ensure your internet connection is stable and try again.");
-            showLoader(false);
-        }
-    }
-    window.sendOtp = sendOtp; // Make it globally accessible
-
-    // Show different step in the UI
-    function showStep(stepNumber) {
-        if (stepNumber === 1) {
-            step1Indicator.classList.add('active');
-            step2Indicator.classList.remove('active', 'completed');
-            step1Form.classList.add('active');
-            step2Form.classList.remove('active');
-            // Reset reCAPTCHA if coming back to step 1
-            if (window.recaptchaWidgetId) {
-                grecaptcha.reset(window.recaptchaWidgetId);
-            }
-        } else if (stepNumber === 2) {
-            step1Indicator.classList.remove('active');
-            step1Indicator.classList.add('completed');
-            step2Indicator.classList.add('active');
-            step1Form.classList.remove('active');
-            step2Form.classList.add('active');
-
-            // Initialize reCAPTCHA only when Step 2 is shown and not already initialized
-            if (!window.recaptchaVerifier) {
-                console.log("Initializing reCAPTCHA for step 2...");
-                window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                    size: 'normal', // 'invisible' can also be used for a less intrusive experience
-                    callback: (response) => {
-                        console.log("✅ reCAPTCHA solved by user interaction or automatically.");
-                        // This callback fires when the user successfully solves the reCAPTCHA.
-                        // You can now proceed to send the OTP if the button was clicked
-                        // and this was the last step needed.
-                    },
-                    'expired-callback': () => {
-                        console.warn("⚠️ reCAPTCHA expired, resetting...");
-                        grecaptcha.reset(window.recaptchaWidgetId);
-                    }
-                });
-                window.recaptchaVerifier.render().then((widgetId) => {
-                    window.recaptchaWidgetId = widgetId;
-                    console.log("reCAPTCHA rendered with widget ID:", widgetId);
-                }).catch(error => {
-                    console.error("Error rendering reCAPTCHA:", error);
-                    showError(step2Error, "Failed to load reCAPTCHA. Please check your internet connection."); // Use showError
-                });
-            } else {
-                console.log("reCAPTCHA already initialized for step 2.");
-            }
-            // Reset state for step 2
-            otpContainer.style.display = "none";
-            sendOtpBtn.style.display = "block";
             hideError(step2Error);
-            hideError(step2Success);
-            showLoader(false);
+            hideError(step2Success); // Use hideError for success too
+            showLoader(true);
+
+            if (!phone) {
+                showError(step2Error, "Phone number not available. Please go back to Step 1.");
+                showLoader(false);
+                return;
+            }
+
+            if (appVerifier && appVerifier.verify) { // Ensure appVerifier exists and has verify method
+                // Firebase signInWithPhoneNumber automatically handles reCAPTCHA verification
+                firebase.auth().signInWithPhoneNumber(phone, appVerifier)
+                    .then((result) => {
+                        window.confirmationResult = result;
+                        otpContainer.style.display = "block";
+                        sendOtpBtn.style.display = "none"; // Hide send OTP button after sending
+                        showError(step2Success, "OTP sent successfully. Please enter it below."); // Use showError for success
+                        grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA after sending OTP
+                    })
+                    .catch((error) => {
+                        console.error("❌ OTP send failed:", error);
+                        handleAuthError(step2Error, error);
+                        grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA on failure
+                    })
+                    .finally(() => {
+                        showLoader(false);
+                    });
+            } else {
+                showError(step2Error, "reCAPTCHA is not ready. Please ensure your internet connection is stable and try again.");
+                showLoader(false);
+            }
         }
-    }
-    window.showStep = showStep; // Make it globally accessible
+        window.sendOtp = sendOtp; // Make it globally accessible
 
-    // Display error message
-    function showError(element, message) {
-        if (element) { // Add a check to ensure element is not null before accessing its properties
-            element.textContent = message;
-            element.style.display = 'block';
-        } else {
-            console.error("Attempted to show error on a null element:", message);
-        }
-    }
-
-    // Hide error message
-    function hideError(element) {
-        if (element) { // Add a check to ensure element is not null before accessing its properties
-            element.style.display = 'none';
-        } else {
-            console.warn("Attempted to hide error on a null element.");
-        }
-    }
-
-    // Show/hide loader
-    function showLoader(show) {
-        if (loader) { // Add a check for loader element
-            loader.style.display = show ? 'block' : 'none';
-        } else {
-            console.warn("Attempted to show/hide loader on a null element.");
-        }
-    }
-
-    // Handle Firebase authentication errors
-    function handleAuthError(element, error) {
-        let message = 'An error occurred. Please try again.';
-
-        switch (error.code) {
-            case 'auth/invalid-email':
-                message = 'Invalid email format';
-                break;
-            case 'auth/user-disabled':
-                message = 'This account has been disabled';
-                break;
-            case 'auth/user-not-found':
-                message = 'User not found';
-                break;
-            case 'auth/wrong-password':
-                message = 'Incorrect password';
-                break;
-            case 'auth/invalid-phone-number':
-                message = 'Invalid phone number format. Please check your database entry.';
-                break;
-            case 'auth/invalid-verification-code':
-                message = 'Invalid verification code.';
-                break;
-            case 'auth/too-many-requests':
-                message = 'Too many attempts. Please try again later.';
-                break;
-            case 'auth/missing-phone-number':
-                message = 'Missing phone number. Please ensure your account has a phone number registered.';
-                break;
-            case 'auth/web-context-unauthorized':
-                message = 'Web context unauthorized. Ensure your domain is authorized in Firebase console.';
-                break;
-            case 'auth/captcha-check-failed':
-            case 'auth/internal-error': // Often related to reCAPTCHA or network issues
-                message = 'Security check failed. Please refresh the page and try again.';
-                break;
-            default:
-                message = error.message || message;
-                break;
-        }
-        showError(element, message);
-    }
-
-    function startLogin() {
-        const email = document.getElementById("email").value.trim();
-        const password = document.getElementById("password").value.trim();
-
-        hideError(step1Error);
-        showLoader(true); // Show loader for login attempt
-
-        if (!email || !password) {
-            showError(step1Error, "Please enter both email and password.");
-            showLoader(false);
-            return;
-        }
-
-        console.log("👉 Attempting to sign in with Email:", email);
-
-        firebase.auth().signInWithEmailAndPassword(email, password)
-            .then((userCredential) => {
-                console.log("✅ Firebase auth success");
-                const user = userCredential.user; // Get the authenticated user object
-                console.log("📦 Fetching phone for UID:", user.uid); // Use user.uid for database lookup
-
-                // CORRECTED: Use the user.uid to fetch the phone number from the database
-                return firebase.database().ref("users/" + user.uid).once("value");
-            })
-            .then(snapshot => {
-                const userData = snapshot.val();
-                console.log("📄 User data from DB:", userData);
-
-                if (!userData || !userData.phone) {
-                    throw new Error("Phone number not found for this user in the database. Please ensure it's linked to this account's UID.");
+        // Show different step in the UI
+        function showStep(stepNumber) {
+            if (stepNumber === 1) {
+                step1Indicator.classList.add('active');
+                step2Indicator.classList.remove('active', 'completed');
+                step1Form.classList.add('active');
+                step2Form.classList.remove('active');
+                // Reset reCAPTCHA if coming back to step 1
+                if (window.recaptchaWidgetId) {
+                    grecaptcha.reset(window.recaptchaWidgetId);
                 }
+            } else if (stepNumber === 2) {
+                step1Indicator.classList.remove('active');
+                step1Indicator.classList.add('completed');
+                step2Indicator.classList.add('active');
+                step1Form.classList.remove('active');
+                step2Form.classList.add('active');
 
-                const phone = userData.phone;
-                window.trustedPhoneNumber = phone;
+                // Initialize reCAPTCHA only when Step 2 is shown and not already initialized
+                if (!window.recaptchaVerifier) {
+                    console.log("Initializing reCAPTCHA for step 2...");
+                    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                        size: 'normal', // 'invisible' can also be used for a less intrusive experience
+                        callback: (response) => {
+                            console.log("✅ reCAPTCHA solved by user interaction or automatically.");
+                            // This callback fires when the user successfully solves the reCAPTCHA.
+                            // You can now proceed to send the OTP if the button was clicked
+                            // and this was the last step needed.
+                        },
+                        'expired-callback': () => {
+                            console.warn("⚠️ reCAPTCHA expired, resetting...");
+                            grecaptcha.reset(window.recaptchaWidgetId);
+                        }
+                    });
+                    window.recaptchaVerifier.render().then((widgetId) => {
+                        window.recaptchaWidgetId = widgetId;
+                        console.log("reCAPTCHA rendered with widget ID:", widgetId);
+                    }).catch(error => {
+                        console.error("Error rendering reCAPTCHA:", error);
+                        showError(step2Error, "Failed to load reCAPTCHA. Please check your internet connection."); // Use showError
+                    });
+                } else {
+                    console.log("reCAPTCHA already initialized for step 2.");
+                }
+                // Reset state for step 2
+                otpContainer.style.display = "none";
+                sendOtpBtn.style.display = "block";
+                hideError(step2Error);
+                hideError(step2Success);
+                showLoader(false);
+            }
+        }
+        window.showStep = showStep; // Make it globally accessible
 
-                // Mask phone number for display
-                const masked = phone.length > 2 ? "xxxxxxx" + phone.slice(-2) : phone;
-                document.getElementById("masked-phone").innerText = masked;
-
-                showStep(2); // Proceed to step 2 after successfully getting phone
-            })
-            .catch((error) => {
-                console.error("❌ Error during login:", error);
-                handleAuthError(step1Error, error); // Use handleAuthError for detailed messages
-            })
-            .finally(() => {
-                showLoader(false); // Hide loader regardless of success or failure
-            });
-    }
-    window.startLogin = startLogin; // Make it globally accessible
-
-    function verifyOtp() {
-        const code = document.getElementById("otp").value.trim();
-
-        hideError(step2Error);
-        hideError(step2Success); // Hide success message too
-
-        if (!code || code.length !== 6) {
-            showError(step2Error, "Please enter a valid 6-digit OTP.");
-            return;
+        // Display error message
+        function showError(element, message) {
+            if (element) { // Add a check to ensure element is not null before accessing its properties
+                element.textContent = message;
+                element.style.display = 'block';
+            } else {
+                console.error("Attempted to show error on a null element:", message);
+            }
         }
 
-        showLoader(true);
-        if (window.confirmationResult) {
-            window.confirmationResult.confirm(code)
-                .then((result) => {
-                    showError(step2Success, "Verification successful! Redirecting..."); // Use showError for success
-                    // Optionally, you might want to sign out if this is a temporary login or manage session
-                    setTimeout(() => {
-                        window.location.href = "dashboard.html";
-                    }, 1500);
+        // Hide error message
+        function hideError(element) {
+            if (element) { // Add a check to ensure element is not null before accessing its properties
+                element.style.display = 'none';
+            } else {
+                console.warn("Attempted to hide error on a null element.");
+            }
+        }
+
+        // Show/hide loader
+        function showLoader(show) {
+            if (loader) { // Add a check for loader element
+                loader.style.display = show ? 'block' : 'none';
+            } else {
+                console.warn("Attempted to show/hide loader on a null element.");
+            }
+        }
+
+        // Handle Firebase authentication errors
+        function handleAuthError(element, error) {
+            let message = 'An error occurred. Please try again.';
+
+            switch (error.code) {
+                case 'auth/invalid-email':
+                    message = 'Invalid email format';
+                    break;
+                case 'auth/user-disabled':
+                    message = 'This account has been disabled';
+                    break;
+                case 'auth/user-not-found':
+                    message = 'User not found';
+                    break;
+                case 'auth/wrong-password':
+                    message = 'Incorrect password';
+                    break;
+                case 'auth/invalid-phone-number':
+                    message = 'Invalid phone number format. Please check your database entry.';
+                    break;
+                case 'auth/invalid-verification-code':
+                    message = 'Invalid verification code.';
+                    break;
+                case 'auth/too-many-requests':
+                    message = 'Too many attempts. Please try again later.';
+                    break;
+                case 'auth/missing-phone-number':
+                    message = 'Missing phone number. Please ensure your account has a phone number registered.';
+                    break;
+                case 'auth/web-context-unauthorized':
+                    message = 'Web context unauthorized. Ensure your domain is authorized in Firebase console.';
+                    break;
+                case 'auth/captcha-check-failed':
+                case 'auth/internal-error': // Often related to reCAPTCHA or network issues
+                    message = 'Security check failed. Please refresh the page and try again.';
+                    break;
+                default:
+                    message = error.message || message;
+                    break;
+            }
+            showError(element, message);
+        }
+
+        function startLogin() {
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value.trim();
+
+            hideError(step1Error);
+            showLoader(true); // Show loader for login attempt
+
+            if (!email || !password) {
+                showError(step1Error, "Please enter both email and password.");
+                showLoader(false);
+                return;
+            }
+
+            console.log("👉 Attempting to sign in with Email:", email);
+
+            firebase.auth().signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    console.log("✅ Firebase auth success");
+                    const user = userCredential.user; // Get the authenticated user object
+                    console.log("📦 Fetching phone for UID:", user.uid); // Use user.uid for database lookup
+
+                    // CORRECTED: Use the user.uid to fetch the phone number from the database
+                    return firebase.database().ref("users/" + user.uid).once("value");
+                })
+                .then(snapshot => {
+                    const userData = snapshot.val();
+                    console.log("📄 User data from DB:", userData);
+
+                    if (!userData || !userData.phone) {
+                        throw new Error("Phone number not found for this user in the database. Please ensure it's linked to this account's UID.");
+                    }
+
+                    const phone = userData.phone;
+                    window.trustedPhoneNumber = phone;
+
+                    // Mask phone number for display
+                    const masked = phone.length > 2 ? "xxxxxxx" + phone.slice(-2) : phone;
+                    document.getElementById("masked-phone").innerText = masked;
+
+                    showStep(2); // Proceed to step 2 after successfully getting phone
                 })
                 .catch((error) => {
-                    console.error("❌ OTP verification failed:", error);
-                    handleAuthError(step2Error, error);
+                    console.error("❌ Error during login:", error);
+                    handleAuthError(step1Error, error); // Use handleAuthError for detailed messages
                 })
                 .finally(() => {
-                    showLoader(false);
+                    showLoader(false); // Hide loader regardless of success or failure
                 });
-        } else {
-            showError(step2Error, "No OTP request pending. Please click 'Send OTP' first.");
-            showLoader(false);
         }
-    }
-    window.verifyOtp = verifyOtp; // Make it globally accessible
-</script>
+        window.startLogin = startLogin; // Make it globally accessible
+
+        function verifyOtp() {
+            const code = document.getElementById("otp").value.trim();
+
+            hideError(step2Error);
+            hideError(step2Success); // Hide success message too
+
+            if (!code || code.length !== 6) {
+                showError(step2Error, "Please enter a valid 6-digit OTP.");
+                return;
+            }
+
+            showLoader(true);
+            if (window.confirmationResult) {
+                window.confirmationResult.confirm(code)
+                    .then((result) => {
+                        showError(step2Success, "Verification successful! Redirecting..."); // Use showError for success
+                        // Optionally, you might want to sign out if this is a temporary login or manage session
+                        setTimeout(() => {
+                            window.location.href = "dashboard.html";
+                        }, 1500);
+                    })
+                    .catch((error) => {
+                        console.error("❌ OTP verification failed:", error);
+                        handleAuthError(step2Error, error);
+                    })
+                    .finally(() => {
+                        showLoader(false);
+                    });
+            } else {
+                showError(step2Error, "No OTP request pending. Please click 'Send OTP' first.");
+                showLoader(false);
+            }
+        }
+        window.verifyOtp = verifyOtp; // Make it globally accessible
+    </script>
 </body>
 
 </html>
