@@ -527,7 +527,10 @@
 
                         // Fetch phone number from Realtime Database using the authenticated user's UID
                         console.log("📦 Fetching phone for UID:", user.uid);
-                        return firebase.database().ref("users/" + user.uid).once("value");
+                        return firebase.database("https://diya-8272a-default-rtdb.asia-southeast1.firebasedatabase.app")
+                            .ref("users/" + user.uid)
+                            .once("value");
+
                     })
                     .then(snapshot => {
                         const userData = snapshot.val();
