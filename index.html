@@ -293,7 +293,7 @@
         <!-- Step 2: Phone OTP -->
         <div id="step2-form" class="step-content form-container">
             <p>OTP will be sent to <strong><span id="masked-phone">loading...</span></strong></p>
-            <div id="recaptcha-container"></div>
+                <div id="recaptcha-container" style="margin-top: 20px; display: flex; justify-content: center;"></div>
             <div class="form-group">
                 <button class="btn btn-otp" id="send-otp-btn" onclick="sendOtp()">Send OTP</button>
             </div>
@@ -313,7 +313,6 @@
             <div id="step2Error" class="error"></div>
             <div id="step2-success" class="success"></div>
         </div>
-
     </div>
 
 
@@ -341,14 +340,18 @@
 
         const auth = firebase.auth();
         window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-            size: 'normal', // show visible box
+            size: 'normal',
             callback: function (response) {
-                console.log('reCAPTCHA solved:', response);
+                console.log('✅ reCAPTCHA solved');
             },
             'expired-callback': function () {
-                console.warn('reCAPTCHA expired');
+                console.warn('⚠️ reCAPTCHA expired');
             }
         });
+        window.recaptchaVerifier.render().then(function (widgetId) {
+            window.recaptchaWidgetId = widgetId;
+        });
+
 
 
         // DOM Elements
