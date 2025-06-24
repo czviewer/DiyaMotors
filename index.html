@@ -341,8 +341,15 @@
 
         const auth = firebase.auth();
         window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-            size: 'invisible'
+            size: 'normal', // show visible box
+            callback: function (response) {
+                console.log('reCAPTCHA solved:', response);
+            },
+            'expired-callback': function () {
+                console.warn('reCAPTCHA expired');
+            }
         });
+
 
         // DOM Elements
         const step1Indicator = document.getElementById('step1-indicator');
