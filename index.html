@@ -525,11 +525,6 @@
                     .then((userCredential) => {
                         console.log("✅ Firebase auth success for user UID:", userCredential.user.uid);
                         const user = userCredential.user;
-
-                        // ✅ FIX: Initialize the regional database instance
-                        const database = firebase.database("https://diya-8272a-default-rtdb.asia-southeast1.firebasedatabase.app");
-
-                        // ✅ Fetch phone number using correct regional endpoint
                         console.log("📦 Fetching phone for UID:", user.uid);
                         return database.ref("users/" + user.uid).once("value");
                     })
