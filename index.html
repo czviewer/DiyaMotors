@@ -122,7 +122,8 @@
         }
 
         .form-container {
-            display: none; /* Hidden by default, shown by JavaScript */
+            display: none;
+            /* Hidden by default, shown by JavaScript */
         }
 
         .form-container.active {
@@ -218,9 +219,11 @@
         }
 
         /* reCAPTCHA specific styling */
-        #recaptcha-container { /* Ensure this ID matches the JS RecaptchaVerifier */
+        #recaptcha-container {
+            /* Ensure this ID matches the JS RecaptchaVerifier */
             margin: 20px 0;
-            display: flex; /* Centers the reCAPTCHA widget */
+            display: flex;
+            /* Centers the reCAPTCHA widget */
             justify-content: center;
         }
 
@@ -233,7 +236,8 @@
             width: 30px;
             height: 30px;
             animation: spin 1s linear infinite;
-            margin: 20px auto; /* Centered */
+            margin: 20px auto;
+            /* Centered */
         }
 
         @keyframes spin {
@@ -304,7 +308,8 @@
 
         <!-- Step 2: Phone OTP Form -->
         <div id="step2-form" class="step-content form-container">
-            <p>An OTP will be sent to the phone number ending in <strong><span id="masked-phone">loading...</span></strong></p>
+            <p>An OTP will be sent to the phone number ending in <strong><span
+                        id="masked-phone">loading...</span></strong></p>
             <div id="recaptcha-container"></div> <!-- reCAPTCHA widget will render here -->
 
             <div class="form-group">
@@ -337,14 +342,12 @@
 
             // Firebase configuration - !!! REPLACE WITH YOUR ACTUAL FIREBASE CONFIG !!!
             const firebaseConfig = {
-                apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
-                authDomain: "diya-motors-tracker.firebaseapp.com",
-                databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-                projectId: "diya-motors-tracker",
-                storageBucket: "diya-motors-tracker.appspot.com",
-                messagingSenderId: "863309961024",
-                appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
-                measurementId: "G-M992F46DFD"
+                apiKey: "AIzaSyCKMO6x9xeUmaV6GGkPWrYdWIj2GWhf7nc",
+                authDomain: "diya-8272a.firebaseapp.com",
+                projectId: "diya-8272a",
+                storageBucket: "diya-8272a.firebasestorage.app",
+                messagingSenderId: "800942380653",
+                appId: "1:800942380653:web:32c5998db7de7ec71d1164"
             };
 
             // Initialize Firebase App
