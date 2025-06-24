@@ -397,9 +397,10 @@
                 step1Indicator.classList.add('completed');
                 step2Indicator.classList.add('active');
                 step1Form.classList.remove('active');
-                step2Form.classList.add('active');
+                step2Form.classList.add('active'); // 👈 This must work because now form has .form-container
             }
         }
+
 
         // Display error message
         function showError(element, message) {
