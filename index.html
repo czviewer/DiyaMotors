@@ -598,6 +598,7 @@
                     showError(step2Error, "reCAPTCHA is not ready. Please refresh the page and try again.");
                     showLoader(false);
                 }
+
             }
             window.sendOtp = sendOtp; // Expose to global scope for onclick attributes
 
@@ -626,6 +627,8 @@
                         .catch((error) => {
                             console.error("❌ OTP verification failed:", error);
                             handleAuthError(step2Error, error); // Display specific error message
+                            console.log("Error details:", JSON.stringify(error));
+
                         })
                         .finally(() => {
                             showLoader(false); // Hide loader
