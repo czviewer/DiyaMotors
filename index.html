@@ -317,7 +317,7 @@
     const otpContainer = document.getElementById('otp-container');
     const step1Error = document.getElementById("step1Error");
     const step2Error = document.getElementById('step2Error');
-    const step2Success = document.getElementById('step2-Success');
+    const step2Success = document.getElementById('step2-success'); // Corrected ID usage
     const loader = document.getElementById('loader');
 
     let confirmationResult;
@@ -328,12 +328,12 @@
         const phone = window.trustedPhoneNumber;
         const appVerifier = window.recaptchaVerifier; // This will be set by showStep(2)
 
-        step2Error.innerText = "";
-        step2Success.innerText = "";
+        hideError(step2Error);
+        hideError(step2Success); // Use hideError for success too
         showLoader(true);
 
         if (!phone) {
-            step2Error.innerText = "Phone number not available. Please go back to Step 1.";
+            showError(step2Error, "Phone number not available. Please go back to Step 1.");
             showLoader(false);
             return;
         }
@@ -345,8 +345,7 @@
                     window.confirmationResult = result;
                     otpContainer.style.display = "block";
                     sendOtpBtn.style.display = "none"; // Hide send OTP button after sending
-                    step2Success.innerText = "OTP sent successfully. Please enter it below.";
-                    step2Success.style.display = "block";
+                    showError(step2Success, "OTP sent successfully. Please enter it below."); // Use showError for success
                     grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA after sending OTP
                 })
                 .catch((error) => {
@@ -358,7 +357,7 @@
                     showLoader(false);
                 });
         } else {
-            step2Error.innerText = "reCAPTCHA is not ready. Please ensure your internet connection is stable and try again.";
+            showError(step2Error, "reCAPTCHA is not ready. Please ensure your internet connection is stable and try again.");
             showLoader(false);
         }
     }
@@ -403,19 +402,10 @@
                     console.log("reCAPTCHA rendered with widget ID:", widgetId);
                 }).catch(error => {
                     console.error("Error rendering reCAPTCHA:", error);
-                    step2Error.innerText = "Failed to load reCAPTCHA. Please check your internet connection.";
-                    step2Error.style.display = "block";
+                    showError(step2Error, "Failed to load reCAPTCHA. Please check your internet connection."); // Use showError
                 });
             } else {
                 console.log("reCAPTCHA already initialized for step 2.");
-                // If recaptchaVerifier already exists, ensure it's rendered if it was previously reset.
-                // This might be redundant if the container is always visible in step 2.
-                // grecaptcha.render(window.recaptchaWidgetId, {
-                //     sitekey: "YOUR_RECAPTCHA_SITE_KEY", // You might need to specify the site key here again if re-rendering
-                //     size: 'normal',
-                //     callback: (response) => { console.log("reCAPTCHA solved on re-render"); },
-                //     'expired-callback': () => { grecaptcha.reset(window.recaptchaWidgetId); }
-                // });
             }
             // Reset state for step 2
             otpContainer.style.display = "none";
@@ -429,18 +419,30 @@
 
     // Display error message
     function showError(element, message) {
-        element.textContent = message;
-        element.style.display = 'block';
+        if (element) { // Add a check to ensure element is not null before accessing its properties
+            element.textContent = message;
+            element.style.display = 'block';
+        } else {
+            console.error("Attempted to show error on a null element:", message);
+        }
     }
 
     // Hide error message
     function hideError(element) {
-        element.style.display = 'none';
+        if (element) { // Add a check to ensure element is not null before accessing its properties
+            element.style.display = 'none';
+        } else {
+            console.warn("Attempted to hide error on a null element.");
+        }
     }
 
     // Show/hide loader
     function showLoader(show) {
-        loader.style.display = show ? 'block' : 'none';
+        if (loader) { // Add a check for loader element
+            loader.style.display = show ? 'block' : 'none';
+        } else {
+            console.warn("Attempted to show/hide loader on a null element.");
+        }
     }
 
     // Handle Firebase authentication errors
@@ -507,7 +509,7 @@
                 const user = userCredential.user; // Get the authenticated user object
                 console.log("📦 Fetching phone for UID:", user.uid); // Use user.uid for database lookup
 
-                // Use the user.uid to fetch the phone number from the database
+                // CORRECTED: Use the user.uid to fetch the phone number from the database
                 return firebase.database().ref("users/" + user.uid).once("value");
             })
             .then(snapshot => {
@@ -539,10 +541,9 @@
 
     function verifyOtp() {
         const code = document.getElementById("otp").value.trim();
-        const step2Success = document.getElementById("step2-success");
 
         hideError(step2Error);
-        hideError(step2Success);
+        hideError(step2Success); // Hide success message too
 
         if (!code || code.length !== 6) {
             showError(step2Error, "Please enter a valid 6-digit OTP.");
@@ -553,8 +554,7 @@
         if (window.confirmationResult) {
             window.confirmationResult.confirm(code)
                 .then((result) => {
-                    step2Success.innerText = "Verification successful! Redirecting...";
-                    showError(step2Success, step2Success.innerText); // Re-use showError for success messages too
+                    showError(step2Success, "Verification successful! Redirecting..."); // Use showError for success
                     // Optionally, you might want to sign out if this is a temporary login or manage session
                     setTimeout(() => {
                         window.location.href = "dashboard.html";
