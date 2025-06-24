@@ -525,13 +525,14 @@
                         console.log("✅ Firebase auth success for user UID:", userCredential.user.uid);
                         const user = userCredential.user;
 
-                        // Fetch phone number from Realtime Database using the authenticated user's UID
-                        console.log("📦 Fetching phone for UID:", user.uid);
-                        return firebase.database("https://diya-8272a-default-rtdb.asia-southeast1.firebasedatabase.app")
-                            .ref("users/" + user.uid)
-                            .once("value");
+                        // ✅ FIX: Initialize the regional database instance
+                        const database = firebase.database("https://diya-8272a-default-rtdb.asia-southeast1.firebasedatabase.app");
 
+                        // ✅ Fetch phone number using correct regional endpoint
+                        console.log("📦 Fetching phone for UID:", user.uid);
+                        return database.ref("users/" + user.uid).once("value");
                     })
+
                     .then(snapshot => {
                         const userData = snapshot.val();
                         console.log("📄 User data from DB:", userData);
