@@ -4,634 +4,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Two-Step Login</title>
-    <!-- Firebase SDK - Best to keep these in the head for faster loading -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-    <!-- reCAPTCHA API Script - Essential for the reCAPTCHA widget -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-
+    <title>Login - Diya Motors Attendance</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* General Styling Variables */
-        :root {
-            --primary: #4361ee;
-            --secondary: #3f37c9;
-            --success: #4cc9f0;
-            --danger: #f72585;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --border: #dee2e6;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Reset and Base Styles */
-        * {
+        body {
             margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+            background: #f3f4f6;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        /* Container for the Login Form */
-        .container {
-            max-width: 500px;
-            width: 100%;
+        .login-container {
+            max-width: 400px;
+            margin: 5% auto;
             background: white;
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            transition: all 0.3s ease;
+            border-radius: 0.75rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
         }
 
-        /* Header Section */
-        .header {
-            background: var(--primary);
-            color: white;
-            padding: 30px 20px;
+        .logo-container {
             text-align: center;
+            margin-bottom: 2rem;
         }
 
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
+        .logo {
+            width: 100px;
+            margin-bottom: 0.5rem;
         }
 
-        .header p {
-            opacity: 0.9;
-            font-size: 16px;
+        h2 {
+            font-size: 1.5rem;
+            color: #1f2937;
         }
 
-        /* Step Indicator */
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            padding: 20px 0;
-            background: #f0f4f8;
+        .input-group {
+            margin-bottom: 1.25rem;
         }
 
-        .step {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: var(--gray);
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            margin: 0 10px;
-            position: relative;
-            transition: background 0.3s ease;
-        }
-
-        .step.active {
-            background: var(--primary);
-        }
-
-        .step.completed {
-            background: var(--success);
-        }
-
-        .step::before {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 3px;
-            background: var(--gray);
-            right: -20px;
-        }
-
-        .step:last-child::before {
-            display: none;
-        }
-
-        /* Form Content Styling */
-        .step-content {
-            padding: 30px;
-        }
-
-        .form-container {
-            display: none; /* Hidden by default, shown by JavaScript */
-        }
-
-        .form-container.active {
+        .input-group label {
             display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        /* Fade-in Animation for forms */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
+            margin-bottom: 0.5rem;
             font-weight: 500;
-            color: var(--dark);
+            color: #374151;
         }
 
-        input {
+        .input-group input {
             width: 100%;
-            padding: 14px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            background-color: #f9fafb;
         }
 
-        input:focus {
+        .input-group input:focus {
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
 
         .btn {
-            display: block;
             width: 100%;
-            padding: 14px;
-            background: var(--primary);
+            padding: 0.75rem;
+            background-color: #2563eb;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
+            border-radius: 0.5rem;
+            font-weight: bold;
             cursor: pointer;
-            transition: background 0.3s ease;
-            margin-top: 10px;
         }
 
-        .btn:hover {
-            background: var(--secondary);
+        .btn:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
         }
 
-        .btn-otp {
-            background: var(--success);
-        }
-
-        .btn-otp:hover {
-            background: #3aa8d0;
-        }
-
-        /* Message Styling - Using consistent class names with CSS */
-        .error-message {
-            color: var(--danger);
-            background: rgba(247, 37, 133, 0.1);
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 14px;
+        .spinner-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.2);
             display: none;
-        }
-
-        .success-message {
-            color: #2a9d8f;
-            background: rgba(42, 157, 143, 0.1);
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 14px;
-            display: none;
-        }
-
-        /* reCAPTCHA specific styling */
-        #recaptcha-container { /* Ensure this ID matches the JS RecaptchaVerifier */
-            margin: 20px 0;
-            display: flex; /* Centers the reCAPTCHA widget */
             justify-content: center;
+            align-items: center;
+            z-index: 999;
         }
 
-        /* Loader Styling */
-        .loader {
-            display: none;
-            border: 4px solid rgba(67, 97, 238, 0.2);
-            border-top: 4px solid var(--primary);
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #3b82f6;
+            border-top-color: transparent;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
             animation: spin 1s linear infinite;
-            margin: 20px auto; /* Centered */
         }
 
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
+            to {
                 transform: rotate(360deg);
             }
         }
 
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 20px;
-            color: var(--gray);
-            font-size: 14px;
-            border-top: 1px solid var(--border);
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
         }
 
-        /* Responsive Adjustments */
-        @media (max-width: 576px) {
-            .container {
-                border-radius: 12px;
-            }
+        .toast {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            color: white;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-            .step-content {
-                padding: 20px;
-            }
+        .toast.success {
+            background-color: #10b981;
+        }
 
-            .header {
-                padding: 20px 15px;
-            }
-
-            .header h1 {
-                font-size: 24px;
-            }
+        .toast.error {
+            background-color: #ef4444;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Secure Login System</h1>
-            <p>Two-step authentication for enhanced security</p>
+    <div class="login-container">
+        <div class="logo-container">
+            <img src="https://cdn.imgchest.com/files/4nec85r2kp4.png" alt="Logo" class="logo" />
+            <h2>Attendance Tracker</h2>
         </div>
 
-        <div class="step-indicator">
-            <div class="step active" id="step1-indicator">1</div>
-            <div class="step" id="step2-indicator">2</div>
+        <div id="step1">
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" id="email" placeholder="your.email@diyamotors.com" />
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="••••••••" />
+            </div>
+            <button class="btn" id="loginBtn">Login</button>
         </div>
 
-        <!-- Step 1: Email + Password Form -->
-        <div id="step1-form" class="step-content form-container active">
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" placeholder="Email" required />
+        <div id="step2" style="display: none;">
+            <p style="text-align:center;">Sending OTP to <strong id="maskedPhone"></strong></p>
+            <div class="input-group">
+                <label>Enter OTP</label>
+                <input type="text" id="otp" placeholder="Enter 6-digit code" />
             </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" placeholder="Password" required />
-            </div>
-            <button class="btn" onclick="startLogin()">Next</button>
-            <div id="step1Error" class="error-message"></div>
-        </div>
-
-        <!-- Step 2: Phone OTP Form -->
-        <div id="step2-form" class="step-content form-container">
-            <p>An OTP will be sent to the phone number ending in <strong><span id="masked-phone">loading...</span></strong></p>
-            <div id="recaptcha-container"></div> <!-- reCAPTCHA widget will render here -->
-
-            <div class="form-group">
-                <button class="btn btn-otp" id="send-otp-btn" onclick="sendOtp()">Send OTP</button>
-            </div>
-
-            <div id="otp-container" style="display: none;">
-                <div class="form-group">
-                    <label for="otp">Enter OTP</label>
-                    <input type="text" id="otp" placeholder="6-digit code" required />
-                </div>
-                <div class="form-group">
-                    <button class="btn" onclick="verifyOtp()">Verify & Login</button>
-                </div>
-            </div>
-
-            <!-- Loader and message displays for Step 2 -->
-            <div id="loader" class="loader"></div>
-            <div id="step2Error" class="error-message"></div> <!-- Using error-message class -->
-            <div id="step2-success" class="success-message"></div> <!-- Using success-message class -->
-
-            <button type="button" onclick="showStep(1)" class="btn back-btn">Back to Email/Password</button>
+            <div id="recaptcha-container" style="margin-bottom: 1rem;"></div>
+            <button class="btn" id="verifyBtn">Verify OTP</button>
         </div>
     </div>
 
-    <!-- The main JavaScript logic -->
+    <div class="spinner-overlay" id="spinner">
+        <div class="spinner"></div>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <script>
-        // Ensure all DOM elements are loaded before running the script
-        document.addEventListener('DOMContentLoaded', (event) => {
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
+            authDomain: "diya-motors-tracker.firebaseapp.com",
+            databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "diya-motors-tracker",
+            storageBucket: "diya-motors-tracker.firebasestorage.app",
+            messagingSenderId: "863309961024",
+            appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
+            measurementId: "G-M992F46DFD"
+        };
+        firebase.initializeApp(firebaseConfig);
 
-            // Firebase configuration - !!! REPLACE WITH YOUR ACTUAL FIREBASE CONFIG !!!
-            const firebaseConfig = {
-                apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
-                authDomain: "diya-motors-tracker.firebaseapp.com",
-                databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-                projectId: "diya-motors-tracker",
-                storageBucket: "diya-motors-tracker.appspot.com",
-                messagingSenderId: "863309961024",
-                appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
-                measurementId: "G-M992F46DFD"
-            };
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('loginBtn');
+        const otpInput = document.getElementById('otp');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const spinner = document.getElementById('spinner');
+        const toastContainer = document.getElementById('toastContainer');
+        const maskedPhone = document.getElementById('maskedPhone');
 
-            // Initialize Firebase App
-            firebase.initializeApp(firebaseConfig);
+        let recaptchaVerifier, confirmationResult;
 
-            // Get Firebase Authentication instance
-            const auth = firebase.auth();
+        function showToast(msg, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas fa-info-circle"></i>${msg}`;
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
 
-            // Cache DOM Elements for efficient access
-            const step1Indicator = document.getElementById('step1-indicator');
-            const step2Indicator = document.getElementById('step2-indicator');
-            const step1Form = document.getElementById('step1-form');
-            const step2Form = document.getElementById('step2-form');
-            const sendOtpBtn = document.getElementById('send-otp-btn');
-            const otpContainer = document.getElementById('otp-container');
-            const step1Error = document.getElementById("step1Error");
-            const step2Error = document.getElementById('step2Error');
-            const step2Success = document.getElementById('step2-success');
-            const loader = document.getElementById('loader');
-            const maskedPhoneSpan = document.getElementById("masked-phone");
-            const emailInput = document.getElementById("email");
-            const passwordInput = document.getElementById("password");
-            const otpInput = document.getElementById("otp");
+        function showSpinner(show) {
+            spinner.style.display = show ? 'flex' : 'none';
+        }
 
-            // Global variables for Firebase auth results and reCAPTCHA
-            let confirmationResult;
-            window.recaptchaVerifier = null; // Initialize as null, will be created in showStep(2)
-            window.recaptchaWidgetId = null; // Store reCAPTCHA widget ID
+        loginBtn.onclick = async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+            if (!email || !password) return showToast('Enter email & password', 'error');
+            showSpinner(true);
 
-            // Function to display messages (error or success)
-            function showError(element, message) {
-                if (element) {
-                    element.textContent = message;
-                    element.style.display = 'block';
-                } else {
-                    console.error("Error: Attempted to show message on a null element. Message:", message);
-                }
-            }
+            try {
+                const { user } = await firebase.auth().signInWithEmailAndPassword(email, password);
+                const uid = user.uid;
+                const snap = await firebase.database().ref(`users/${uid}/phone`).once('value');
+                const phone = snap.val();
+                if (!phone) throw new Error('Phone number not found');
 
-            // Function to hide messages (error or success)
-            function hideError(element) {
-                if (element) {
-                    element.style.display = 'none';
-                } else {
-                    console.warn("Warning: Attempted to hide message on a null element.");
-                }
-            }
+                maskedPhone.textContent = `+91 ******${phone.slice(-4)}`;
+                step1.style.display = 'none';
+                step2.style.display = 'block';
 
-            // Function to show/hide the loading spinner
-            function showLoader(show) {
-                if (loader) {
-                    loader.style.display = show ? 'block' : 'none';
-                } else {
-                    console.warn("Warning: Attempted to control loader visibility on a null element.");
-                }
-            }
+                setTimeout(async () => {
+                    try {
+                        recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container');
+                        await recaptchaVerifier.render();
+                        confirmationResult = await firebase.auth().signInWithPhoneNumber(phone, recaptchaVerifier);
+                        showToast('OTP sent.');
+                        showSpinner(false); // ✅ Hides the infinite spinner
 
-            // Centralized Firebase Authentication Error Handler
-            function handleAuthError(element, error) {
-                let message = 'An unknown error occurred. Please try again.';
-
-                switch (error.code) {
-                    case 'auth/invalid-email':
-                        message = 'Invalid email format. Please check and try again.';
-                        break;
-                    case 'auth/user-disabled':
-                        message = 'This account has been disabled. Please contact support.';
-                        break;
-                    case 'auth/user-not-found':
-                    case 'auth/wrong-password':
-                        message = 'Incorrect email or password. Please try again.';
-                        break;
-                    case 'auth/invalid-phone-number':
-                        message = 'Invalid phone number format. Please ensure your account has a valid phone number registered.';
-                        break;
-                    case 'auth/invalid-verification-code':
-                        message = 'Invalid OTP. Please check the code and try again.';
-                        break;
-                    case 'auth/too-many-requests':
-                        message = 'Too many attempts. Please try again later. (This usually happens if reCAPTCHA isn\'t configured correctly or too many failed attempts.)';
-                        break;
-                    case 'auth/missing-phone-number':
-                        message = 'Phone number missing from your profile. Please contact support.';
-                        break;
-                    case 'auth/web-context-unauthorized':
-                        message = 'Authorization error. Your domain is not authorized in Firebase settings.';
-                        break;
-                    case 'auth/captcha-check-failed':
-                    case 'auth/internal-error': // This often points to reCAPTCHA setup issues in Firebase Console
-                        message = 'Security check failed or network issue. Please ensure reCAPTCHA is correctly set up in Firebase Console.';
-                        break;
-                    default:
-                        message = error.message || message;
-                        break;
-                }
-                showError(element, message);
-            }
-
-            // Function to control step visibility and reCAPTCHA initialization
-            function showStep(stepNumber) {
-                if (stepNumber === 1) {
-                    step1Indicator.classList.add('active');
-                    step2Indicator.classList.remove('active', 'completed');
-                    step1Form.classList.add('active');
-                    step2Form.classList.remove('active');
-                    hideError(step1Error); // Hide errors when going back
-                    showLoader(false);
-                    // Reset reCAPTCHA if user goes back to step 1
-                    if (window.recaptchaWidgetId) {
-                        grecaptcha.reset(window.recaptchaWidgetId);
+                    } catch (e) {
+                        showToast('reCAPTCHA/OTP failed', 'error');
+                        firebase.auth().signOut();
+                        step1.style.display = 'block';
+                        step2.style.display = 'none';
+                    } finally {
+                        showSpinner(false);
                     }
-                } else if (stepNumber === 2) {
-                    step1Indicator.classList.remove('active');
-                    step1Indicator.classList.add('completed');
-                    step2Indicator.classList.add('active');
-                    step1Form.classList.remove('active');
-                    step2Form.classList.add('active');
+                }, 300);
 
-                    // Initialize reCAPTCHA only when Step 2 is displayed and it's not already initialized
-                    if (!window.recaptchaVerifier) {
-                        console.log("Initializing reCAPTCHA for step 2...");
-                        // Use a specific reCAPTCHA container ID
-                        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                            size: 'normal', // Can be 'compact' or 'invisible' too
-                            callback: (response) => {
-                                console.log("✅ reCAPTCHA solved by user interaction or automatically.");
-                                // This callback fires when the user successfully solves the reCAPTCHA.
-                            },
-                            'expired-callback': () => {
-                                console.warn("⚠️ reCAPTCHA expired, resetting...");
-                                grecaptcha.reset(window.recaptchaWidgetId); // Reset on expiration
-                            }
-                        });
-                        window.recaptchaVerifier.render().then((widgetId) => {
-                            window.recaptchaWidgetId = widgetId;
-                            console.log("reCAPTCHA rendered with widget ID:", widgetId);
-                        }).catch(error => {
-                            console.error("Error rendering reCAPTCHA:", error);
-                            showError(step2Error, "Failed to load reCAPTCHA. Please check your internet connection and ensure reCAPTCHA is configured in Firebase.");
-                        });
-                    } else {
-                        console.log("reCAPTCHA already initialized for step 2.");
-                    }
-
-                    // Reset state for Step 2 UI
-                    otpContainer.style.display = "none";
-                    sendOtpBtn.style.display = "block";
-                    hideError(step2Error);
-                    hideError(step2Success);
-                    showLoader(false);
-                }
+            } catch (e) {
+                showToast(e.message || 'Login failed', 'error');
+                firebase.auth().signOut();
+                showSpinner(false);
             }
-            window.showStep = showStep; // Expose to global scope for onclick attributes
+        };
 
-            // Step 1: Handle Email/Password Login
-            function startLogin() {
-                const email = emailInput.value.trim();
-                const password = passwordInput.value.trim();
-                // safeEmailKey is not used for database lookup with user.uid, but keep for context if needed elsewhere.
-                // const safeEmailKey = email.replace(/[@.]/g, "_"); 
-
-                hideError(step1Error); // Clear previous errors
-                showLoader(true); // Show loader
-
-                if (!email || !password) {
-                    showError(step1Error, "Please enter both email and password.");
-                    showLoader(false);
-                    return;
-                }
-
-                console.log("👉 Attempting to sign in with Email:", email);
-
-                firebase.auth().signInWithEmailAndPassword(email, password)
-                    .then((userCredential) => {
-                        console.log("✅ Firebase auth success for user UID:", userCredential.user.uid);
-                        const user = userCredential.user;
-
-                        // Fetch phone number from Realtime Database using the authenticated user's UID
-                        console.log("📦 Fetching phone for UID:", user.uid);
-                        return firebase.database().ref("users/" + user.uid).once("value");
-                    })
-                    .then(snapshot => {
-                        const userData = snapshot.val();
-                        console.log("📄 User data from DB:", userData);
-
-                        if (!userData || !userData.phone) {
-                            throw new Error("Phone number not found for this user in the database. Please ensure it's linked to this account's UID.");
-                        }
-
-                        const phone = userData.phone;
-                        window.trustedPhoneNumber = phone; // Store phone for OTP sending
-
-                        // Mask phone number for display in Step 2
-                        const masked = phone.length > 2 ? "xxxxxxx" + phone.slice(-2) : phone;
-                        maskedPhoneSpan.innerText = masked;
-
-                        showStep(2); // Move to Step 2
-                    })
-                    .catch((error) => {
-                        console.error("❌ Error during login:", error);
-                        handleAuthError(step1Error, error); // Display specific error message
-                    })
-                    .finally(() => {
-                        showLoader(false); // Hide loader
-                    });
+        verifyBtn.onclick = async () => {
+            const code = otpInput.value.trim();
+            if (code.length !== 6) return showToast('Enter valid 6-digit OTP', 'error');
+            showSpinner(true);
+            try {
+                await confirmationResult.confirm(code);
+                showToast('Login success');
+                setTimeout(() => (window.location.href = 'home.html'), 1500);
+            } catch {
+                showToast('Invalid OTP', 'error');
+            } finally {
+                showSpinner(false);
             }
-            window.startLogin = startLogin; // Expose to global scope for onclick attributes
+        };
 
-            // Step 2: Handle Sending OTP
-            function sendOtp() {
-                const phone = window.trustedPhoneNumber;
-                const appVerifier = window.recaptchaVerifier; // Use the reCAPTCHA verifier instance
-
-                hideError(step2Error);
-                hideError(step2Success); // Clear messages
-                showLoader(true); // Show loader
-
-                if (!phone) {
-                    showError(step2Error, "Phone number is missing. Please go back to Step 1 and try again.");
-                    showLoader(false);
-                    return;
-                }
-
-                if (appVerifier) {
-                    // This is the CORRECT way: signInWithPhoneNumber AUTOMATICALLY handles reCAPTCHA verification when appVerifier is passed
-                    firebase.auth().signInWithPhoneNumber(phone, appVerifier)
-                        .then((result) => {
-                            confirmationResult = result; // Store the confirmation result for OTP verification
-                            otpContainer.style.display = "block"; // Show OTP input field
-                            sendOtpBtn.style.display = "none"; // Hide Send OTP button
-                            showError(step2Success, "OTP sent successfully. Please enter it below.");
-                            grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA on success
-                        })
-                        .catch((error) => {
-                            console.error("❌ OTP send failed:", error);
-                            handleAuthError(step2Error, error);
-                            grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA on failure
-                        })
-                        .finally(() => {
-                            showLoader(false); // Hide loader
-                        });
-                } else {
-                    showError(step2Error, "reCAPTCHA is not ready. Please refresh the page and try again.");
-                    showLoader(false);
-                }
-            }
-            window.sendOtp = sendOtp; // Expose to global scope for onclick attributes
-
-            // Step 2: Handle OTP Verification
-            function verifyOtp() {
-                const code = otpInput.value.trim(); // Get OTP from input field
-
-                hideError(step2Error);
-                hideError(step2Success); // Clear messages
-
-                if (!code || code.length !== 6) {
-                    showError(step2Error, "Please enter a valid 6-digit OTP.");
-                    return;
-                }
-
-                showLoader(true); // Show loader
-                if (confirmationResult) {
-                    confirmationResult.confirm(code)
-                        .then((result) => {
-                            showError(step2Success, "Verification successful! Redirecting to dashboard...");
-                            // Redirect to dashboard on successful verification
-                            setTimeout(() => {
-                                window.location.href = "dashboard.html";
-                            }, 1500);
-                        })
-                        .catch((error) => {
-                            console.error("❌ OTP verification failed:", error);
-                            handleAuthError(step2Error, error); // Display specific error message
-                        })
-                        .finally(() => {
-                            showLoader(false); // Hide loader
-                        });
-                } else {
-                    showError(step2Error, "No OTP request pending. Please click 'Send OTP' first.");
-                    showLoader(false);
-                }
-            }
-            window.verifyOtp = verifyOtp; // Expose to global scope for onclick attributes
-
-            // Initial setup: Show the first step on page load
-            showStep(1);
-        }); // End of DOMContentLoaded listener
+        firebase.auth().signOut();
     </script>
 </body>
 
