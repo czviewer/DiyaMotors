@@ -1,70 +1,629 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <title>Test Firebase Phone Login</title>
-  <script type="module">
-    // Firebase v9 modular imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diya Motors - Secure Login</title>
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    // 🔧 Your Firebase Config (REPLACE WITH YOURS)
-     const firebaseConfig = {
-                apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
-                authDomain: "diya-motors-tracker.firebaseapp.com",
-                databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-                projectId: "diya-motors-tracker",
-                storageBucket: "diya-motors-tracker.appspot.com",
-                messagingSenderId: "863309961024",
-                appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
-                measurementId: "G-M992F46DFD"
-            };
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+        .card {
+            transition: all 0.4s ease;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            overflow: hidden;
+        }
 
-    // ⚠️ Force reCAPTCHA to be invisible for minimal UI
-    window.recaptchaVerifier = new RecaptchaVerifier("recaptcha-container", {
-      size: "invisible",
-      callback: (response) => {
-        console.log("reCAPTCHA solved");
-      },
-    }, auth);
+        .logo-container {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        }
 
-    let confirmationResult = null;
+        .otp-input {
+            letter-spacing: 20px;
+            font-size: 1.5rem;
+            padding-left: 16px;
+        }
 
-    window.sendOTP = async () => {
-      const phone = document.getElementById("phone").value;
-      try {
-        confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
-        alert("OTP Sent!");
-      } catch (error) {
-        console.error("Error during sendOTP", error);
-        alert("Error: " + error.message);
-      }
-    };
+        .slide-in {
+            animation: slideIn 0.5s forwards;
+        }
 
-    window.verifyOTP = async () => {
-      const code = document.getElementById("otp").value;
-      try {
-        const result = await confirmationResult.confirm(code);
-        alert("✅ Login Successful: " + result.user.uid);
-      } catch (error) {
-        console.error("OTP verification failed", error);
-        alert("❌ OTP failed: " + error.message);
-      }
-    };
-  </script>
+        .fade-in {
+            animation: fadeIn 0.4s forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .btn-disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .password-toggle {
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #3b82f6;
+            animation: progress 2s linear;
+            border-radius: 2px;
+        }
+
+        @keyframes progress {
+            0% {
+                width: 0;
+            }
+
+            100% {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 
 <body>
-  <h2>📱 Firebase Phone Auth Test</h2>
-  <input type="text" id="phone" placeholder="+91XXXXXXXXXX" />
-  <button onclick="sendOTP()">Send OTP</button>
-  <br><br>
-  <input type="text" id="otp" placeholder="Enter OTP" />
-  <button onclick="verifyOTP()">Verify OTP</button>
+    <div class="w-full max-w-md">
+        <div class="card bg-white relative">
 
-  <div id="recaptcha-container"></div>
+            <!-- Logo Header -->
+            <div class="logo-container text-white text-center py-8">
+                <h1 class="text-3xl font-bold flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mr-2" viewBox="0 0 24 24"
+                        fill="currentColor">
+                        <path
+                            d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zm1-11h-2v6h4v-2h-2V8z" />
+                    </svg>
+                    Diya Motors
+                </h1>
+                <p class="mt-2 opacity-90">Secure Enterprise Portal</p>
+            </div>
+
+            <!-- ================= Email Login Form ================= -->
+            <div id="loginSection" class="p-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Sign in to your account</h2>
+                <form id="loginForm" class="space-y-6">
+                    <!-- Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email address</label>
+                        <div class="relative">
+                            <input id="email" name="email" type="email" autocomplete="email" required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                placeholder="you@diyamotors.com">
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400"
+                                    viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <div class="relative">
+                            <input id="password" name="password" type="password" autocomplete="current-password"
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition pr-10"
+                                placeholder="••••••••">
+                            <button type="button" id="togglePassword"
+                                class="text-gray-400 hover:text-gray-600 absolute top-1/2 right-3 transform -translate-y-1/2">
+                                <svg id="hideIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden"
+                                    viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd"
+                                        d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z"
+                                        clip-rule="evenodd" />
+                                    <path
+                                        d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Remember Me -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input id="remember" name="remember" type="checkbox"
+                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="remember" class="ml-2 block text-sm text-gray-700">Remember me</label>
+                        </div>
+                        <div class="text-sm">
+                            <a href="#" class="font-medium text-blue-600 hover:text-blue-500">Forgot password?</a>
+                        </div>
+                    </div>
+
+                    <!-- Login Button -->
+                    <div>
+                        <button id="loginBtn" type="submit"
+                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                            Sign in
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Switch to OTP -->
+                <div class="mt-6 text-center">
+                    <button id="showOtpLogin" class="text-sm text-blue-600 hover:underline">Use Phone OTP
+                        instead</button>
+                    <p class="text-sm text-gray-600 mt-4">© 2023 Diya Motors. All rights reserved.</p>
+                </div>
+            </div>
+
+            <!-- ================= OTP Section (Hidden by default) ================= -->
+            <div id="otpSection" class="p-8 hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Phone OTP Login</h2>
+
+                <form id="otpLoginForm" class="space-y-6">
+                    <!-- Phone Number -->
+                    <div>
+                        <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                        <input id="phone" name="phone" type="tel" required placeholder="+91XXXXXXXXXX"
+                            pattern="^\+?\d{10,15}$"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" />
+                    </div>
+
+                    <div id="recaptcha-container" class="mb-3"></div>
+
+                    <div>
+                        <button id="sendOtpBtn" type="submit"
+                            class="w-full py-3 px-4 rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-sm font-medium">
+                            Send OTP
+                        </button>
+                    </div>
+                </form>
+
+                <!-- OTP Code Entry -->
+                <form id="otpForm" class="space-y-6 mt-6 hidden">
+                    <div class="text-center">
+                        <p class="text-gray-600 mb-4">Enter the OTP sent to <span id="maskedPhone"
+                                class="font-medium text-blue-700">+91 ••••••9988</span></p>
+                    </div>
+
+                    <div>
+                        <label for="otp" class="block text-sm font-medium text-gray-700 mb-1">Verification Code</label>
+                        <input id="otp" name="otp" type="text" inputmode="numeric" maxlength="6" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                            placeholder="••••••">
+                    </div>
+
+                    <p id="otpTimer" class="text-center text-sm text-gray-500">Resend OTP in <span
+                            id="countdown">60</span> seconds</p>
+
+                    <div class="flex space-x-3">
+                        <button id="resendBtn" type="button" disabled
+                            class="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 text-sm font-medium">
+                            Resend OTP
+                        </button>
+                        <button id="verifyBtn" type="submit"
+                            class="flex-1 py-3 px-4 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 text-sm font-medium">
+                            Verify
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-6 text-center">
+                    <button id="backToEmail" class="text-sm font-medium text-blue-600 hover:text-blue-500">
+                        ← Back to Email Login
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading Overlay -->
+            <div id="loadingOverlay"
+                class="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center hidden">
+                <div class="text-center">
+                    <div
+                        class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4">
+                    </div>
+                    <p id="loadingText" class="text-gray-700 font-medium">Authenticating...</p>
+                    <div class="w-64 mx-auto mt-4">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Status Message -->
+        <div id="statusMessage" class="mt-4 text-center text-sm text-red-600"></div>
+    </div>
+
+
+    <script>
+        let recaptchaVerifier = null;
+
+        // DOM Elements
+        const loginSection = document.getElementById('loginSection');
+        const otpSection = document.getElementById('otpSection');
+        const loginForm = document.getElementById('loginForm');
+        const otpForm = document.getElementById('otpForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const resendBtn = document.getElementById('resendBtn');
+
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+        const backToEmail = document.getElementById('backToEmail');
+        const hideIcon = document.getElementById('hideIcon');
+        const maskedPhone = document.getElementById('maskedPhone');
+        const otpInput = document.getElementById('otp');
+        const statusMessage = document.getElementById('statusMessage');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const countdownEl = document.getElementById('countdown');
+        const otpTimer = document.getElementById('otpTimer');
+
+        // State variables
+        let currentUser = null;
+        let phoneNumber = '';
+        let confirmationResult = null;
+        let resendTimer = null;
+        let countdown = 60;
+
+        // Initialize Firebase
+        function initializeFirebase() {
+            try {
+                // Firebase configuration - Replace with your actual config
+                // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+                const firebaseConfig = {
+                    apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
+                    authDomain: "diya-motors-tracker.firebaseapp.com",
+                    databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+                    projectId: "diya-motors-tracker",
+                    storageBucket: "diya-motors-tracker.firebasestorage.app",
+                    messagingSenderId: "863309961024",
+                    appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
+                    measurementId: "G-M992F46DFD"
+                };
+
+                // Initialize Firebase
+                firebase.initializeApp(firebaseConfig);
+
+                console.log("Firebase initialized successfully");
+            } catch (error) {
+                console.error("Firebase initialization error:", error);
+                showError("Failed to initialize authentication service. Please try again later.");
+            }
+        }
+        async function handleOtpVerification(e) {
+            e.preventDefault();
+
+            const otp = otpInput.value;
+
+            if (!otp || otp.length !== 6) {
+                showError("Please enter a valid 6-digit OTP");
+                return;
+            }
+
+            showLoading("Verifying OTP...");
+            disableButton(verifyBtn, true);
+
+            try {
+                // Verify the OTP
+                const credential = firebase.auth.PhoneAuthProvider.credential(
+                    confirmationResult.verificationId,
+                    otp
+                );
+
+                // Sign in with phone credential
+                await firebase.auth().signInWithCredential(credential);
+
+
+                // Redirect to home page
+                redirectToHome();
+            } catch (error) {
+                console.error("OTP verification error:", error);
+                showError(getErrorMessage(error));
+            } finally {
+                hideLoading();
+                disableButton(verifyBtn, false);
+            }
+        }
+ async function handleEmailLogin(e) {
+        e.preventDefault();
+
+        const email = document.getElementById("email")?.value?.trim();
+        const password = document.getElementById("password")?.value?.trim();
+
+        if (!email || !password) {
+            showError("Please enter both email and password.");
+            return;
+        }
+
+        showLoading("Signing in...");
+
+        try {
+            const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+            const user = userCredential.user;
+
+            // Optional: fetch role from database if needed
+            const role = await fetchUserRole(user.uid);
+            console.log("Role:", role);
+
+            redirectToHome();
+        } catch (error) {
+            console.error("Login error:", error);
+            showError(getErrorMessage(error));
+        } finally {
+            hideLoading();
+        }
+    }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+
+            const phoneInput = document.getElementById("phone");
+            if (!phoneInput) {
+                console.error("Phone input element not found!");
+                return;
+            }
+
+            const rawPhone = phoneInput.value; // Always string
+            if (!rawPhone || rawPhone.length < 10) {
+                alert("Please enter a valid phone number.");
+                return;
+            }
+
+            await sendOtp(rawPhone);
+        }
+        // Initialize Firebase when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFirebase();
+
+            loginForm.addEventListener('submit', handleEmailLogin); // 🟢 FIXED
+            document.getElementById('otpLoginForm').addEventListener('submit', handleLogin); // 🟢 FIXED
+            otpForm.addEventListener('submit', handleOtpVerification);
+
+            togglePassword.addEventListener('click', togglePasswordVisibility);
+            backToEmail.addEventListener('click', goBackToLogin);
+            resendBtn.addEventListener('click', handleResendOtp);
+        });
+
+
+
+        // Handle login form submission
+
+        // Handle OTP verification
+
+        // Handle resend OTP
+        async function handleResendOtp() {
+            if (!phoneNumber) return;
+
+            showLoading("Sending new OTP...");
+            disableButton(resendBtn, true);
+            clearInterval(resendTimer);
+
+            try {
+                await sendOtp(phoneNumber);
+                countdown = 60;
+                startResendTimer();
+                showMessage("New OTP sent successfully", "success");
+            } catch (error) {
+                console.error("Resend OTP error:", error);
+                showError(getErrorMessage(error));
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Send OTP to phone number
+        async function sendOtp(phone) {
+            try {
+                if (!recaptchaVerifier) {
+                    recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                        'size': 'invisible'
+                    });
+                    await recaptchaVerifier.render();
+                }
+
+                // 🔒 Convert to string first
+                const phoneStr = String(phone).trim();
+                const formattedPhone = phoneStr.startsWith('+') ? phoneStr : '+' + phoneStr;
+
+                confirmationResult = await firebase.auth().signInWithPhoneNumber(formattedPhone, recaptchaVerifier);
+                console.log("✅ OTP sent to", formattedPhone);
+            } catch (error) {
+                console.error("❌ OTP sending error:", error);
+                throw error;
+            }
+        }
+
+
+
+        // Fetch user role from Realtime Database
+        async function fetchUserRole(uid) {
+            try {
+                const snapshot = await firebase.database().ref(`users/${uid}/role`).once('value');
+                return snapshot.val();
+            } catch (error) {
+                console.error("Error fetching user role:", error);
+                throw new Error("Failed to fetch user information");
+            }
+        }
+
+        // Fetch user phone from Realtime Database
+        async function fetchUserPhone(uid) {
+            try {
+                const snapshot = await firebase.database().ref(`users/${uid}/phone`).once('value');
+                return snapshot.val();
+            } catch (error) {
+                console.error("Error fetching user phone:", error);
+                throw new Error("Failed to fetch user phone information");
+            }
+        }
+
+        // Check zeroOtp flag
+        async function checkZeroOtpFlag() {
+            try {
+                const snapshot = await firebase.database().ref('settings/zeroOtp').once('value');
+                return snapshot.val() === true;
+            } catch (error) {
+                console.error("Error checking zeroOtp flag:", error);
+                return false;
+            }
+        }
+
+        // Helper Functions
+        // Helper Functions
+        function maskPhoneNumber(phone) {
+            if (!phone) return "Invalid Number";
+            const str = String(phone);
+            if (!/^\+?\d{10,15}$/.test(str)) return "Invalid Format";
+            return str.slice(0, 3) + "*****" + str.slice(-4);
+        }
+
+
+
+        function showLoading(message) {
+            loadingText.textContent = message;
+            loadingOverlay.classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.add('hidden');
+        }
+
+        function showMessage(message, type = 'success') {
+            statusMessage.innerHTML = `
+                <div class="p-3 rounded-lg ${type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}">
+                    ${message}
+                </div>
+            `;
+
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                statusMessage.innerHTML = '';
+            }, 5000);
+        }
+
+        function showError(message) {
+            showMessage(message, 'error');
+        }
+
+        function disableButton(button, disabled) {
+            if (disabled) {
+                button.disabled = true;
+                button.classList.add('btn-disabled');
+            } else {
+                button.disabled = false;
+                button.classList.remove('btn-disabled');
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const isPassword = passwordInput.type === 'password';
+            passwordInput.type = isPassword ? 'text' : 'password';
+
+            // Show/hide logic for one icon only
+            if (hideIcon) {
+                hideIcon.classList.toggle('hidden', !isPassword);
+            }
+        }
+
+
+        function switchToOtpSection() {
+            loginSection.classList.add('hidden');
+            otpSection.classList.remove('hidden');
+            otpSection.classList.add('fade-in');
+        }
+
+        function goBackToLogin() {
+            otpSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            loginSection.classList.add('slide-in');
+            clearInterval(resendTimer);
+        }
+
+        function redirectToHome() {
+            showLoading("Login successful! Redirecting...");
+            setTimeout(() => {
+                window.location.href = 'home.html';
+            }, 1500);
+        }
+
+        function startResendTimer() {
+            disableButton(resendBtn, true);
+            countdownEl.textContent = countdown;
+            otpTimer.classList.remove('hidden');
+
+            resendTimer = setInterval(() => {
+                countdown--;
+                countdownEl.textContent = countdown;
+
+                if (countdown <= 0) {
+                    clearInterval(resendTimer);
+                    disableButton(resendBtn, false);
+                    otpTimer.classList.add('hidden');
+                }
+            }, 1000);
+        }
+
+        function getErrorMessage(error) {
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    return 'No account found with this email.';
+                case 'auth/wrong-password':
+                    return 'Incorrect password. Please try again.';
+                case 'auth/invalid-verification-code':
+                    return 'Invalid OTP. Please enter the correct code.';
+                case 'auth/code-expired':
+                    return 'OTP has expired. Please request a new one.';
+                case 'auth/too-many-requests':
+                    return 'Too many attempts. Please try again later.';
+                case 'auth/invalid-phone-number':
+                    return 'Invalid phone number. Please check the format.';
+                case 'auth/network-request-failed':
+                    return 'Network error. Please check your internet connection.';
+                default:
+                    return error.message || 'An unknown error occurred. Please try again.';
+            }
+        }
+
+    </script>
+
+    <!-- Invisible reCAPTCHA container -->
+    <div id="recaptcha-container"></div>
 </body>
+
 </html>
