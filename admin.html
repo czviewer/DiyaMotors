@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | AbsentEase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <script>
+        // Firebase Configuration and Initialization
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
+            authDomain: "diya-motors-tracker.firebaseapp.com",
+            databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "diya-motors-tracker",
+            storageBucket: "diya-motors-tracker.appspot.com",
+            messagingSenderId: "863309961024",
+            appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
+            measurementId: "G-M992F46DFD"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        // ✅ Fake Time Control (for Admin Panel)
+        let testMode = false;
+        let testNow = null;
+
+        // ✅ Safe Time Getter: Returns real time or fake time based on testMode
+        function getNow() {
+            if (testMode && testNow instanceof Date) {
+                return new Date(testNow);
+            }
+            return new Date();
+        }
+
+        // ✅ Simulate time ticking (only if testMode is active)
+        setInterval(() => {
+            if (testMode && testNow instanceof Date) {
+                testNow.setSeconds(testNow.getSeconds() + 1);
+            }
+        }, 1000);
+
+        // ✅ Update Live Clock display
+        function updateLiveClock() {
+            const now = getNow();
+            const timeStr = now.toLocaleTimeString("en-IN", { hour12: true });
+            const clockEl = document.getElementById("live-clock");
+            if (clockEl) {
+                clockEl.textContent = timeStr;
+            }
+        }
+
+        // Load fake time setting from DB and start clock
+        firebase.database().ref("settings").once("value").then(snapshot => {
+            const settings = snapshot.val();
+            if (settings?.testMode && settings?.fakeTime) {
+                testMode = true;
+                testNow = new Date(settings.fakeTime);
+                console.log("🧪 Test Mode Enabled in Admin:", testNow.toLocaleString());
+            } else {
+                testMode = false;
+                testNow = null;
+                console.log("🕒 Real Time Mode in Admin");
+            }
+            // Initialize clock display immediately after settings are loaded
+            updateLiveClock();
+        }).catch(err => {
+            console.warn("⚠️ Failed to load test settings:", err.message);
+            testMode = false; // Fallback to real time if there's an error
+            testNow = null;
+            updateLiveClock(); // Initialize clock display even on error
+        });
+
+        // Start the live clock interval after initial load
+        setInterval(updateLiveClock, 1000);
+
+    </script>
+</head>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background-color: #b0bbca;
+    }
+
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #003366;
+        color: white;
+        padding: 10px 20px;
+    }
+
+    .logo-section {
+        display: flex;
+        align-items: inherit;
+        gap: 11px;
+        row-gap: 16px;
+        column-gap: 10px;
+    }
+
+    .logo-img {
+        height: 60px;
+    }
+
+    .app-name {
+        font-size: 26px;
+        font-weight: bold;
+    }
+
+    .clock-container {
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .container {
+        padding: 20px;
+    }
+
+    .controls {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .control-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .control-group select,
+    .control-group button {
+        padding: 8px;
+        font-size: 14px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
+
+    .attendance-table-container {
+        overflow-x: auto;
+        margin-bottom: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: white;
+    }
+
+    th,
+    td {
+        padding: 10px;
+        border: 1px solid #ccc;
+        text-align: center;
+    }
+
+    th {
+        background-color: #003366;
+        color: white;
+    }
+
+    .radio-group {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+    }
+
+    .radio-group label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .summary-section {
+        display: flex;
+        justify-content: space-around;
+        margin: 20px 0;
+    }
+
+    .summary-item {
+        background-color: white;
+        padding: 10px 20px;
+        border-radius: 6px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .summary-count {
+        font-size: 24px;
+        font-weight: bold;
+    }
+
+    .count-full {
+        color: green;
+    }
+
+    .count-half {
+        color: orange;
+    }
+
+    .count-absent {
+        color: red;
+    }
+
+    .count-late {
+        color: #ff3300;
+    }
+
+    .save-section {
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .save-btn {
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: green;
+        color: white;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+    }
+
+    .save-btn:disabled {
+        background-color: gray;
+        cursor: not-allowed;
+    }
+
+    .status-badge {
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 6px;
+        display: inline-block;
+    }
+
+    .status-full {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .status-half {
+        background-color: #ffc107;
+        color: black;
+    }
+
+    .status-absent {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .late-indicator {
+        color: red;
+        font-weight: bold;
+    }
+
+    input[type="checkbox"]:disabled {
+        background-color: #0052f5 !important;
+        border: 1px solid #f70a0aad;
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .user-section {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    #user-badge {
+        border-radius: 8px;
+        padding: 8px 12px;
+        color: hsl(0, 86%, 39%);
+        font-family: "Segoe UI", sans-serif;
+        font-size: 13px;
+        line-height: 1.4;
+        text-align: center;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        min-width: 150px;
+    }
+
+    #user-name {
+        font-weight: 600;
+        font-size: 14px;
+        color: #03feedd1;
+    }
+
+    #branch-info {
+        font-size: 12px;
+        color: #ffffff;
+    }
+
+    .user-badge-dev {
+        background-color: #6f42c1;
+        border-left: 4px solid #6f42c1;
+    }
+
+    .user-badge-admin {
+        background-color: #31d8ae;
+        border-left: 4px solid #010d18;
+    }
+
+    .user-badge-branch {
+        background-color: #28a745;
+        border-left: 4px solid #2e7d32;
+    }
+
+    .top-bar-dev {
+        background-color: #5e35b1;
+    }
+
+    .top-bar-admin {
+        background-color: #3f0e0e00;
+    }
+
+    .top-bar-branch {
+        background-color: #2e7d32;
+    }
+
+    .logo {
+        font-size: 20px;
+        font-weight: bold;
+    }
+
+    .btn {
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+        color: #333;
+    }
+
+    .btn:hover {
+        background-color: #e9e9e9;
+    }
+
+    #admin-panel-btn {
+        background-color: #374785;
+        color: white;
+        padding: 6px 14px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    #admin-panel-btn:hover {
+        background-color: #2c3769;
+    }
+
+    #logout-btn {
+        border-color: #d9534f;
+        background-color: #f8d7da;
+        color: #a94442;
+    }
+
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4.5px 20px;
+        background-color: #e1e1e1;
+        color: #333;
+        font-family: 'Segoe UI', sans-serif;
+        border-bottom: 1px solid #000000;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    .logo img {
+        height: 55px;
+    }
+
+    #save-btn {
+        background-color: #d32f2f;
+        color: #fff;
+        padding: 8px 18px;
+        border: none;
+        font-weight: 600;
+        border-radius: 6px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    #save-btn:hover {
+        background-color: #b71c1c;
+    }
+
+    .user-badge {
+        width: auto;
+        max-width: 10%;
+        white-space: nowrap;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background-color: #4f505e;
+        color: #333;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 500;
+        box-shadow: 0 1px 3px rgba(10, 218, 55, 0.06);
+        border-left: 4px solid transparent;
+    }
+</style>
+
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="header-container"></div>
+
+
+    <div class="container mx-auto px-4 py-6">
+        <div class="mb-6">
+            <nav class="flex space-x-4 border-b">
+                <button class="tab-button px-4 py-2 text-blue-700 border-b-2 border-blue-700 font-semibold"
+                    data-tab="records">Employee Records</button>
+                <button class="tab-button px-4 py-2 text-gray-700 hover:text-blue-700" data-tab="individual">Individual
+                    Records</button>
+                <button class="tab-button px-4 py-2 text-gray-700 hover:text-blue-700" data-tab="edit">Edit Employee
+                    Records</button>
+            </nav>
+        </div>
+
+        <div id="tab-records" class="tab-content">
+            <div class="bg-white p-6 rounded shadow space-y-6">
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Branch</label>
+                        <select id="record-branch" class="form-select border rounded px-3 py-2">
+                            <option value="All">All</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Subdivision</label>
+                        <select id="record-subdivision" class="form-select border rounded px-3 py-2" disabled>
+                            <option value="All">All</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">From</label>
+                        <input type="date" id="record-from" class="form-input border rounded px-3 py-2">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">To</label>
+                        <input type="date" id="record-to" class="form-input border rounded px-3 py-2">
+                    </div>
+
+                    <button id="load-records-btn" class="bg-blue-600 text-white px-4 py-2 rounded font-medium">
+                        Load Records
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full border text-sm" id="employee-records-table">
+                        <thead class="bg-gray-100 font-semibold">
+                            <tr>
+                                <th class="border px-4 py-2">Date</th>
+                                <th class="border px-4 py-2">Employee</th>
+                                <th class="border px-4 py-2">Branch</th>
+                                <th class="border px-4 py-2">Subdivision</th>
+                                <th class="border px-4 py-2">Morning</th>
+                                <th class="border px-4 py-2">Afternoon</th>
+                                <th class="border px-4 py-2">Status</th>
+                                <th class="border px-4 py-2">Late?</th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-table-body">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-4">
+                    <button id="export-pdf" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">📄 Export
+                        PDF</button>
+                    <button id="export-excel" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">📊
+                        Export Excel</button>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="tab-individual" class="tab-content hidden">
+            <div class="bg-white p-6 rounded shadow">
+                <h2 class="text-lg font-semibold mb-4">Individual Records</h2>
+                <p class="text-gray-600">This section will allow filtering records by employee with dropdowns: Branch →
+                    Subdivision → Employee (All options included).</p>
+            </div>
+        </div>
+
+        <div id="tab-edit" class="tab-content hidden">
+            <div class="bg-white p-6 rounded shadow">
+                <h2 class="text-lg font-semibold mb-4">Edit Employee Records</h2>
+                <p class="text-gray-600">This section will allow editing employee names and deleting employees.
+                    Functionality coming soon.</p>
+            </div>
+        </div>
+
+        <div id="activity-logs" class="bg-white p-6 rounded shadow mt-6 hidden">
+            <h2 class="text-lg font-semibold mb-4">Activity Logs</h2>
+            <p class="text-gray-600">This section will display user activity with filters. Accessible via top header.
+            </p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        // Tab functionality
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.getAttribute('data-tab');
+
+                tabButtons.forEach(b => {
+                    b.classList.remove('text-blue-700', 'border-blue-700', 'font-semibold');
+                    b.classList.add('text-gray-700');
+                });
+
+                btn.classList.add('text-blue-700', 'border-b-2', 'border-blue-700', 'font-semibold');
+
+                tabContents.forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`tab-${target}`).classList.remove('hidden');
+            });
+        });
+
+        // Load header.html and set up its specific event listeners
+        fetch("header.html")
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById("header-container").innerHTML = data;
+
+                const logButton = document.getElementById("logs-btn");
+                const activityLogs = document.getElementById("activity-logs");
+
+                if (logButton && activityLogs) {
+                    logButton.addEventListener("click", () => {
+                        activityLogs.classList.toggle("hidden");
+                        activityLogs.scrollIntoView({ behavior: "smooth" });
+                    });
+                }
+
+                // Auth and Role Logic for dropdowns
+                auth.onAuthStateChanged(user => {
+                    if (!user) {
+                        // Redirect to login if not authenticated
+                        window.location.href = "index.html";
+                        return;
+                    }
+
+                    const branchDropdown = document.getElementById("record-branch");
+                    const subdivisionDropdown = document.getElementById("record-subdivision");
+
+                    // 1) Populate Branch dropdown from /branches
+                    db.ref("branches").once("value")
+                        .then(snap => {
+                            const branchesObj = snap.val() || {};
+                            branchDropdown.innerHTML = `<option value="All">All</option>`;
+                            Object.keys(branchesObj).forEach(branchKey => {
+                                const label = branchKey.charAt(0).toUpperCase() + branchKey.slice(1);
+                                branchDropdown.innerHTML += `<option value="${branchKey}">${label}</option>`;
+                            });
+                        })
+                        .catch(err => console.error("Error loading branches:", err));
+
+                    // 2) When a Branch is selected, populate Subdivision dropdown
+                    branchDropdown.addEventListener("change", () => {
+                        const selBranch = branchDropdown.value;
+                        if (selBranch === "All") {
+                            subdivisionDropdown.innerHTML = `<option value="All">All</option>`;
+                            subdivisionDropdown.disabled = true;
+                            return;
+                        }
+
+                        // Fetch subdivisions under the selected branch
+                        db.ref(`branches/${selBranch}/subdivisions`).once("value")
+                            .then(snap => {
+                                const subsObj = snap.val() || {};
+                                subdivisionDropdown.innerHTML = `<option value="All">All</option>`;
+                                Object.keys(subsObj).forEach(subKey => {
+                                    const label = subKey.charAt(0).toUpperCase() + subKey.slice(1);
+                                    subdivisionDropdown.innerHTML += `<option value="${subKey}">${label}</option>`;
+                                });
+                                subdivisionDropdown.disabled = false;
+                            })
+                            .catch(err => console.error("Error loading subdivisions:", err));
+                    });
+                });
+            })
+            .catch(error => {
+                console.error("Error fetching header.html:", error);
+            });
+
+
+        // Load Records Button Logic
+        document.getElementById("load-records-btn").addEventListener("click", async () => {
+            const branch = document.getElementById("record-branch").value;
+            const subdivision = document.getElementById("record-subdivision").value;
+            const fromDate = document.getElementById("record-from").value;
+            const toDate = document.getElementById("record-to").value;
+
+            const tbody = document.getElementById("records-table-body");
+            tbody.innerHTML = ""; // Clear existing records
+
+            if (!fromDate || !toDate) {
+                alert("Please select both From and To dates.");
+                return;
+            }
+
+            const start = new Date(fromDate);
+            const end = new Date(toDate);
+
+            const dates = [];
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                dates.push(d.toISOString().slice(0, 10)); // Format YYYY-MM-DD
+            }
+
+            for (const date of dates) {
+                try {
+                    const snap = await db.ref(`attendance/${date}`).once("value");
+                    const data = snap.val();
+                    if (!data) continue; // No attendance data for this date
+
+                    // Case 1: All Branches selected
+                    if (branch === "All") {
+                        for (const [brKey, brObj] of Object.entries(data)) {
+                            // If a specific subdivision is selected, filter by it across all branches
+                            if (subdivision !== "All" && !brObj[subdivision]) continue;
+                            for (const [subKey, empObj] of Object.entries(brObj)) {
+                                if (subdivision === "All" || subKey === subdivision) {
+                                    await renderEmployees(date, brKey, subKey, empObj);
+                                }
+                            }
+                        }
+                    }
+                    // Case 2: Specific Branch selected, All Subdivisions
+                    else if (subdivision === "All") {
+                        const branchData = data[branch];
+                        if (!branchData) continue; // No data for this branch
+
+                        for (const [subKey, empObj] of Object.entries(branchData)) {
+                            await renderEmployees(date, branch, subKey, empObj);
+                        }
+                    }
+                    // Case 3: Specific Branch & Subdivision selected
+                    else {
+                        const empObj = data?.[branch]?.[subdivision];
+                        if (!empObj) continue; // No data for this specific branch/subdivision
+
+                        await renderEmployees(date, branch, subdivision, empObj);
+                    }
+
+                } catch (error) {
+                    console.error("Failed loading records for date " + date + ":", error);
+                }
+            }
+
+            if (tbody.innerHTML === "") {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-gray-500 py-4">No records found in this range or for the selected filters.</td></tr>`;
+            }
+        });
+
+        // Helper function to render employee attendance rows
+        async function renderEmployees(date, branch, subdivision, employees) {
+            const tbody = document.getElementById("records-table-body");
+
+            for (const [empId, record] of Object.entries(employees)) {
+                // Fetch employee name from branches structure
+                const empSnap = await db.ref(`branches/${branch}/subdivisions/${subdivision}/employees/${empId}`).once("value");
+                const empData = empSnap.val();
+                const empName = empData?.name || empId; // Use ID if name is not found
+
+                // Dynamic Status Calculation based on presence and afternoon status
+                const morning = record.morning === true;
+                const afternoon = record.afternoon || "None"; // Default to "None" if not set
+
+                let status = "Absent";
+                if (morning && afternoon === "None") {
+                    status = "Full Day";
+                } else if (morning && afternoon === "Leaves") {
+                    status = "Half Day";
+                } else if (!morning && afternoon === "Enters") { // Assuming "Enters" means present in afternoon
+                    status = "Half Day";
+                } else if (!morning && (afternoon === "None" || afternoon === "")) {
+                    status = "Absent";
+                }
+
+                // Create table row
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="border px-4 py-2">${date}</td>
+                    <td class="border px-4 py-2">${empName}</td>
+                    <td class="border px-4 py-2">${branch}</td>
+                    <td class="border px-4 py-2">${subdivision}</td>
+                    <td class="border px-4 py-2">${morning ? "✅" : "❌"}</td>
+                    <td class="border px-4 py-2">${afternoon}</td>
+                    <td class="border px-4 py-2">
+                        <span class="status-badge ${status === "Full Day" ? "status-full" :
+                            status === "Half Day" ? "status-half" :
+                                "status-absent"
+                        }">${status}</span>
+                    </td>
+                    <td class="border px-4 py-2">
+                        ${record.late === true ? '<span class="late-indicator">(LATE COMING)</span>' : ""}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        // Export to Excel
+        document.getElementById("export-excel").addEventListener("click", () => {
+            const table = document.getElementById("employee-records-table");
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.table_to_sheet(table);
+            XLSX.utils.book_append_sheet(wb, ws, "Employee Records");
+            XLSX.writeFile(wb, "Employee_Records.xlsx");
+        });
+
+        // Export to PDF
+        document.getElementById("export-pdf").addEventListener("click", () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(16);
+            doc.text("Employee Attendance Records", 14, 16);
+
+            doc.autoTable({
+                html: "#employee-records-table",
+                startY: 22,
+                theme: "striped",
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 3,
+                    halign: "center",
+                },
+                headStyles: {
+                    fillColor: [33, 37, 41],
+                    textColor: 255,
+                    fontStyle: "bold",
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245],
+                },
+                margin: { top: 20 },
+            });
+
+            doc.save("Employee_Records.pdf");
+        });
+
+    </script>
+
+</body>
+
+</html>

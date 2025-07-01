@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Test Firebase Phone Login</title>
+  <script type="module">
+    // Firebase v9 modular imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+
+    // 🔧 Your Firebase Config (REPLACE WITH YOURS)
+     const firebaseConfig = {
+                apiKey: "AIzaSyCwbK4jLFqPcb6mecLre-Vg5Wt6v1wldQM",
+                authDomain: "diya-motors-tracker.firebaseapp.com",
+                databaseURL: "https://diya-motors-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+                projectId: "diya-motors-tracker",
+                storageBucket: "diya-motors-tracker.appspot.com",
+                messagingSenderId: "863309961024",
+                appId: "1:863309961024:web:fec4992fe3cbd23bf60ca5",
+                measurementId: "G-M992F46DFD"
+            };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // ⚠️ Force reCAPTCHA to be invisible for minimal UI
+    window.recaptchaVerifier = new RecaptchaVerifier("recaptcha-container", {
+      size: "invisible",
+      callback: (response) => {
+        console.log("reCAPTCHA solved");
+      },
+    }, auth);
+
+    let confirmationResult = null;
+
+    window.sendOTP = async () => {
+      const phone = document.getElementById("phone").value;
+      try {
+        confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
+        alert("OTP Sent!");
+      } catch (error) {
+        console.error("Error during sendOTP", error);
+        alert("Error: " + error.message);
+      }
+    };
+
+    window.verifyOTP = async () => {
+      const code = document.getElementById("otp").value;
+      try {
+        const result = await confirmationResult.confirm(code);
+        alert("✅ Login Successful: " + result.user.uid);
+      } catch (error) {
+        console.error("OTP verification failed", error);
+        alert("❌ OTP failed: " + error.message);
+      }
+    };
+  </script>
+</head>
+
+<body>
+  <h2>📱 Firebase Phone Auth Test</h2>
+  <input type="text" id="phone" placeholder="+91XXXXXXXXXX" />
+  <button onclick="sendOTP()">Send OTP</button>
+  <br><br>
+  <input type="text" id="otp" placeholder="Enter OTP" />
+  <button onclick="verifyOTP()">Verify OTP</button>
+
+  <div id="recaptcha-container"></div>
+</body>
+</html>
