@@ -107,6 +107,50 @@
             gap: 4px;
         }
 
+        /* Styles for radio button appearance */
+        .radio-group input[type="radio"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .radio-group input[type="radio"]:checked {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .radio-group input[type="radio"]:checked::before {
+            content: '';
+            display: block;
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .radio-group input[type="radio"]:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+            background-color: #eee;
+        }
+
+        .radio-group input[type="radio"]:disabled:checked {
+            background-color: #a0a0a0;
+            border-color: #a0a0a0;
+        }
+
+
         .summary-section {
             display: flex;
             justify-content: space-around;
@@ -351,14 +395,14 @@
                 <label for="branch-select">Branch</label>
                 <select id="branch-select">
                     <option value="">Select Branch</option>
-                    </select>
+                </select>
             </div>
 
             <div class="control-group">
                 <label for="subdivision-select">Sub-division</label>
                 <select id="subdivision-select" disabled>
                     <option value="">Select Sub-division</option>
-                    </select>
+                </select>
             </div>
 
             <div class="control-group">
@@ -379,7 +423,7 @@
                     </tr>
                 </thead>
                 <tbody id="attendance-table-body">
-                    </tbody>
+                </tbody>
             </table>
         </div>
         <div class="summary-section">
@@ -546,6 +590,7 @@
                 const morningCell = document.createElement('td');
                 const morningCheckbox = document.createElement('input');
                 morningCheckbox.type = 'checkbox';
+                morningCheckbox.id = `morning-check-${emp.id}`; // Unique ID
                 morningCheckbox.checked = data.morning;
                 // Disable if already locked or after 12 PM
                 morningCheckbox.disabled = data.morningLocked || after12PM;
@@ -571,7 +616,8 @@
                 ['Enters', 'Leaves', 'None'].forEach(status => {
                     const radio = document.createElement('input');
                     radio.type = 'radio';
-                    radio.name = `an-${emp.id}`;
+                    radio.name = `an-status-${emp.id}`; // Unique name for each employee's radio group
+                    radio.id = `an-${emp.id}-${status}`; // Unique ID for each radio button
                     radio.value = status;
                     radio.checked = data.afternoon === status;
 
@@ -608,6 +654,7 @@
                     });
 
                     const label = document.createElement('label');
+                    label.htmlFor = `an-${emp.id}-${status}`; // Link label to input
                     label.appendChild(radio);
                     label.appendChild(document.createTextNode(" " + status));
                     anGroup.appendChild(label);
@@ -953,11 +1000,15 @@
                     morning: data.morning,
                     afternoon: data.afternoon || 'None',
                     late: data.late || false,
+                    lateTime: data.late ? getNow().toLocaleTimeString("en-IN", { hour12: true }) : null,
+                    morningTime: data.morning === true ? getNow().toLocaleTimeString("en-IN", { hour12: true }) : null,
+                    anTime: (data.afternoon === 'Enters' || data.afternoon === 'Leaves') ? getNow().toLocaleTimeString("en-IN", { hour12: true }) : null,
                     leave: leaveValue,
-                    morningLocked: data.morning === true, // Lock morning if marked present
-                    anLocked: data.afternoon === 'Enters' || data.afternoon === 'Leaves', // Lock AN if marked
+                    morningLocked: data.morning === true,
+                    anLocked: data.afternoon === 'Enters' || data.afternoon === 'Leaves',
                     timestamp: getNow().toISOString()
                 };
+
 
                 attendancePayload[emp.id] = payload;
                 leaveSummary[emp.id] = leaveValue;
