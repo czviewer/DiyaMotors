@@ -50,7 +50,7 @@ function loadHeader(userData) {
             logoutBtn.addEventListener("click", () => {
               if (confirm("Are you sure you want to log out?")) {
                 firebase.auth().signOut().then(() => {
-                  window.location.href = "login.html";
+                  window.location.href = "index.html";
                 });
               }
             });
