@@ -411,12 +411,7 @@
             </div>
         </div>
 
-        <div id="location-status" class="location-info">
-            <p><strong>Location Status:</strong> <span id="location-message">Checking location...</span></p>
-            <p>Your Location: <span id="user-coords">N/A</span></p>
-            <p>Branch Location: <span id="branch-coords">N/A</span></p>
-            <p>Distance: <span id="distance-display">N/A</span></p>
-        </div>
+
 
         <div id="attendance-section" class="attendance-form" style="display: none;">
             <div class="form-group">
@@ -933,55 +928,65 @@
         /**
          * Handles the submission of attendance data.
          */
-        submitAttendanceBtn.addEventListener('click', async () => {
-            const { statusType, leaveValue } = calculateAttendanceStatus();
+submitAttendanceBtn.addEventListener('click', async () => {
+    const { statusType, leaveValue } = calculateAttendanceStatus();
 
-            if (statusType === 'invalid') {
-                showModal('Invalid Attendance', 'The selected attendance combination is invalid. Please review your entries.');
-                return;
-            }
+    if (statusType === 'invalid') {
+        showModal('Invalid Attendance', 'The selected attendance combination is invalid. Please review your entries.');
+        return;
+    }
 
-            // Confirm before saving
-            showModal('Confirm Attendance', 'Are you sure you want to submit your attendance for today?');
-            modalOkBtn.onclick = async () => {
-                hideModal(); // Hide modal immediately after OK is clicked
+    // Confirm before saving
+    showModal('Confirm Attendance', 'Are you sure you want to submit your attendance for today?');
+    modalOkBtn.onclick = async () => {
+        hideModal();
 
-                const now = new Date();
-                const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
-                const timestamp = now.toISOString(); // ISO 8601 format
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const timestamp = now.toISOString();
 
-                const attendanceDataToSave = {
-                    name: currentUserData.name,
-                    uid: auth.currentUser.uid,
-                    morning: morningCheck.checked,
-                    afternoon: document.querySelector('input[name="afternoon-status"]:checked').value,
-                    late: attendanceRecord.late, // From calculateAttendanceStatus
-                    leave: leaveValue, // From calculateAttendanceStatus
-                    timestamp: timestamp,
-                    morningLocked: morningCheck.checked, // Lock morning if checked
-                    anLocked: (anEnters.checked || anLeaves.checked) // Lock AN if Enters/Leaves
-                };
+        const uid = auth.currentUser.uid;
+        const branch = currentUserData.branch;
+        const subdivision = currentUserData.subdivision || 'default';
 
-                const attendancePath = `attendance/${today}/${currentUserData.branch}/${currentUserData.subdivision || 'default'}/${auth.currentUser.uid}`;
-                const attendanceRef = ref(db, attendancePath);
+        const attendanceDataToSave = {
+            name: currentUserData.name,
+            uid: uid,
+            morning: morningCheck.checked,
+            afternoon: document.querySelector('input[name="afternoon-status"]:checked').value,
+            late: attendanceRecord.late,
+            leave: leaveValue,
+            timestamp: timestamp,
+            morningLocked: true,
+            anLocked: true
+        };
 
-                try {
-                    await set(attendanceRef, attendanceDataToSave);
-                    displayAttendanceMessage('Attendance saved successfully!', false);
-                    // Update local record and disable inputs after successful save
-                    attendanceRecord = { ...attendanceDataToSave
-                    };
-                    morningCheck.disabled = attendanceRecord.morningLocked;
-                    anEnters.disabled = attendanceRecord.anLocked;
-                    anLeaves.disabled = attendanceRecord.anLocked;
-                    anNone.disabled = attendanceRecord.anLocked;
-                    submitAttendanceBtn.disabled = true; // Disable after submission until next day/refresh
-                } catch (error) {
-                    console.error('Error saving attendance:', error);
-                    showModal('Save Error', `Failed to save attendance: ${error.message}`);
-                }
-            };
-        });
+        const attendancePath = `attendance/${today}/${branch}/${subdivision}/${uid}`;
+        const leaveLogPath = `leavelogs/${uid}/${today}`;
+
+        try {
+            // Save attendance
+            await set(ref(db, attendancePath), attendanceDataToSave);
+
+            // Save leave to leavelogs
+            await set(ref(db, leaveLogPath), leaveValue);
+
+            displayAttendanceMessage('✅ Attendance & leave saved successfully!', false);
+
+            // Lock inputs after saving
+            attendanceRecord = { ...attendanceDataToSave };
+            morningCheck.disabled = true;
+            anEnters.disabled = true;
+            anLeaves.disabled = true;
+            anNone.disabled = true;
+            submitAttendanceBtn.disabled = true;
+
+        } catch (error) {
+            console.error('Error saving attendance or leave logs:', error);
+            showModal('Save Error', `Failed to save: ${error.message}`);
+        }
+    };
+});
 
 
         /**
