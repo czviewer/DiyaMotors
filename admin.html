@@ -326,6 +326,23 @@
                 }
             }
 
+            // If not found by branch/subdivision, search all branches/subdivisions
+            const branchesSnap = await get(ref(db, 'branches'));
+            if (branchesSnap.exists()) {
+                for (const branchKey of Object.keys(branchesSnap.val())) {
+                    const subdivisionsSnap = await get(ref(db, `branches/${branchKey}/subdivisions`));
+                    if (subdivisionsSnap.exists()) {
+                        for (const subKey of Object.keys(subdivisionsSnap.val())) {
+                            const empSnap = await get(ref(db, `branches/${branchKey}/subdivisions/${subKey}/employees/${employeeId}`));
+                            if (empSnap.exists()) {
+                                const empData = empSnap.val();
+                                return { ...empData, id: employeeId, branch: branchKey, subdivision: subKey, isSpecial: false };
+                            }
+                        }
+                    }
+                }
+            }
+
             return null; // Employee not found
         }
 
@@ -818,6 +835,10 @@
         const loadingIndividualIndicator = document.getElementById("loading-individual");
         const exportIndivPdfBtn = document.getElementById("export-indiv-pdf");
         const exportIndivExcelBtn = document.getElementById("export-indiv-excel");
+        const indivEmployeeDetailsHeader = document.getElementById('indiv-employee-details-header'); // New element for employee details
+        const searchByIdInput = document.getElementById('search-by-id-input'); // New search input
+        const searchByIdBtn = document.getElementById('search-by-id-btn'); // New search button
+
 
         let currentIndividualRecords = []; // Store fetched data for export
 
@@ -981,6 +1002,51 @@
             renderIndividualTable(currentIndividualRecords, indivToggleTimesCheckbox.checked);
         });
 
+        // Search by Employee ID Logic
+        searchByIdBtn.addEventListener('click', async () => {
+            const employeeIdToSearch = searchByIdInput.value.trim();
+            if (!employeeIdToSearch) {
+                showModal("Please enter an Employee ID to search.", null, true);
+                return;
+            }
+
+            showLoadingModal(`Searching for employee ID: ${employeeIdToSearch}...`);
+            try {
+                const employeeData = await getEmployeeDetails(employeeIdToSearch);
+
+                if (employeeData) {
+                    // Set dropdowns based on found employee
+                    if (employeeData.isSpecial) {
+                        indivBranchDropdown.value = "All";
+                        indivSubdivisionDropdown.value = "All";
+                        populateIndivEmployees(true, true).then(() => {
+                            indivEmployeeDropdown.value = employeeData.id;
+                            hideLoadingModal();
+                            loadIndividualBtn.click(); // Trigger load
+                        });
+                    } else {
+                        indivBranchDropdown.value = employeeData.branch;
+                        populateSubdivisionDropdown(indivBranchDropdown, indivSubdivisionDropdown).then(() => {
+                            indivSubdivisionDropdown.value = employeeData.subdivision;
+                            populateEmployeeDropdown(indivBranchDropdown, indivSubdivisionDropdown, indivEmployeeDropdown).then(() => {
+                                indivEmployeeDropdown.value = employeeData.id;
+                                hideLoadingModal();
+                                loadIndividualBtn.click(); // Trigger load
+                            });
+                        });
+                    }
+                } else {
+                    hideLoadingModal();
+                    showModal(`Employee ID "${employeeIdToSearch}" not found in the database.`, null, true);
+                }
+            } catch (error) {
+                hideLoadingModal();
+                console.error("Error searching by employee ID:", error);
+                showModal("An error occurred during search. Please try again.", null, true);
+            }
+        });
+
+
         // Load Individual Records Button Click
         loadIndividualBtn.addEventListener("click", async () => {
             const selectedBranch = indivBranchDropdown.value;
@@ -992,6 +1058,7 @@
 
             indivRecordsTableBody.innerHTML = ''; // Clear table body
             indivSummary.classList.add('hidden'); // Hide summary
+            indivEmployeeDetailsHeader.classList.add('hidden'); // Hide employee details header initially
             loadingIndividualIndicator.classList.remove('hidden'); // Show loading
 
             // Reset summary counts
@@ -1019,7 +1086,8 @@
             }
 
             try {
-                let employeesToFetch = new Map(); // Map to store { empId: { name, branch, subdivision, isSpecial } }
+                let employeesToFetch = new Map(); // Map to store { empId: { name, branch, subdivision, isSpecial, des } }
+                let employeeDetailsForHeader = null; // To store details for the header
 
                 if (selectedEmployeeId === "All") {
                     // Fetch all employees based on branch/subdivision filters
@@ -1039,7 +1107,7 @@
                             if (selectedSubdivision === "All" || subKey === selectedSubdivision) {
                                 const employees = subdivisions[subKey].employees || {};
                                 for (const empId in employees) {
-                                    employeesToFetch.set(empId, { name: employees[empId].name, branch: branchKey, subdivision: subKey, isSpecial: false });
+                                    employeesToFetch.set(empId, { name: employees[empId].name, branch: branchKey, subdivision: subKey, isSpecial: false, des: employees[empId].des || 'Not Set' });
                                 }
                             }
                         }
@@ -1049,7 +1117,7 @@
                     if (selectedBranch === "All" || selectedSubdivision === "All") {
                         const specialEmployeesSnap = await get(ref(db, "specialEmployees"));
                         specialEmployeesSnap.forEach(specialEmp => {
-                            employeesToFetch.set(specialEmp.key, { name: specialEmp.val().name, branch: 'N/A', subdivision: 'Special', isSpecial: true });
+                            employeesToFetch.set(specialEmp.key, { name: specialEmp.val().name, branch: 'N/A', subdivision: 'Special', isSpecial: true, des: specialEmp.val().des || 'Not Set' });
                         });
                     }
 
@@ -1062,6 +1130,7 @@
                         return;
                     }
                     employeesToFetch.set(selectedEmployeeId, employeeData);
+                    employeeDetailsForHeader = employeeData; // Store for header
                 }
 
                 if (employeesToFetch.size === 0) {
@@ -1167,7 +1236,8 @@
                                 lateIndicator: lateIndicator,
                                 branch: empDetails.branch,
                                 subdivision: empDetails.subdivision,
-                                employeeId: empId
+                                employeeId: empId,
+                                designation: empDetails.des || 'Not Set' // Include designation
                             });
                         }
                     }
@@ -1191,6 +1261,22 @@
                 indivLateDays.textContent = summaryLateDays;
                 indivTotalLeaveCountEl.textContent = `${summaryTotalLeave} Days`;
                 indivSummary.classList.remove('hidden');
+
+                // Update employee details header
+                if (employeeDetailsForHeader) {
+                    indivEmployeeDetailsHeader.innerHTML = `
+                        <p class="text-lg font-semibold text-gray-800">
+                            Name: ${employeeDetailsForHeader.name || 'N/A'},
+                            Designation: ${employeeDetailsForHeader.des || 'Not Set'}
+                        </p>
+                        <p class="text-lg font-semibold text-gray-800">
+                            Total Leave: <span id="indiv-total-leave-count-header">${summaryTotalLeave} Days</span>
+                        </p>
+                    `;
+                    indivEmployeeDetailsHeader.classList.remove('hidden');
+                } else {
+                    indivEmployeeDetailsHeader.classList.add('hidden');
+                }
 
             } catch (error) {
                 console.error("Error loading individual records:", error);
@@ -1285,9 +1371,13 @@
             const fromDate = indivFromDateInput.value;
             const toDate = indivToDateInput.value;
             const showTimes = indivToggleTimesCheckbox.checked;
+            const designation = document.getElementById('indiv-employee-details-header').querySelector('p:first-child').textContent.split('Designation: ')[1].split(',')[0].trim();
+            const totalLeave = indivTotalLeaveCountEl.textContent;
 
             doc.text(`Individual Attendance Records for ${employeeName}`, 14, 15);
-            doc.text(`From: ${fromDate} To: ${toDate}`, 14, 22);
+            doc.text(`Designation: ${designation}`, 14, 20);
+            doc.text(`From: ${fromDate} To: ${toDate}`, 14, 27);
+
 
             const pdfHeaders = [
                 "Date",
@@ -1323,7 +1413,7 @@
             doc.autoTable({
                 head: [pdfHeaders],
                 body: pdfBody,
-                startY: 30,
+                startY: 35,
                 theme: "striped",
                 styles: {
                     fontSize: 8,
@@ -1343,14 +1433,14 @@
                         textColor: [255, 0, 0], // Red color for Late column
                     }
                 },
-                margin: { top: 28 }
+                margin: { top: 30 }
             });
 
             const fullDays = indivFullDays.textContent;
             const halfDays = indivHalfDays.textContent;
             const absentDays = indivAbsentDays.textContent;
             const lateDays = indivLateDays.textContent;
-            const totalLeave = indivTotalLeaveCountEl.textContent;
+
 
             let finalY = doc.autoTable.previous.finalY;
             doc.setFontSize(10);
@@ -1376,9 +1466,12 @@
             const fromDate = indivFromDateInput.value;
             const toDate = indivToDateInput.value;
             const showTimes = indivToggleTimesCheckbox.checked;
+            const designation = document.getElementById('indiv-employee-details-header').querySelector('p:first-child').textContent.split('Designation: ')[1].split(',')[0].trim();
+            const totalLeave = indivTotalLeaveCountEl.textContent;
 
             const ws_data = [
                 [`Individual Attendance Records for ${employeeName}`],
+                [`Designation: ${designation}`],
                 [`From: ${fromDate} To: ${toDate}`],
                 [],
             ];
@@ -1419,7 +1512,7 @@
             const halfDays = indivHalfDays.textContent;
             const absentDays = indivAbsentDays.textContent;
             const lateDays = indivLateDays.textContent;
-            const totalLeave = indivTotalLeaveCountEl.textContent;
+
 
             ws_data.push([]);
             ws_data.push(["Summary:"]);
@@ -1612,6 +1705,7 @@
                 document.getElementById("edit-employee-name").value = "";
                 document.getElementById("edit-employee-phone").value = "";
                 document.getElementById("edit-employee-email").value = "";
+                document.getElementById("edit-employee-designation").value = ""; // Clear designation
                 return;
             }
 
@@ -1633,11 +1727,13 @@
                     document.getElementById("edit-employee-name").value = employeeData.name || "";
                     document.getElementById("edit-employee-phone").value = employeeData.phone || "";
                     document.getElementById("edit-employee-email").value = employeeData.email || "";
+                    document.getElementById("edit-employee-designation").value = employeeData.des || ""; // Populate designation
                 } else {
                     console.warn("Employee data not found for ID:", employeeId);
                     document.getElementById("edit-employee-name").value = "";
                     document.getElementById("edit-employee-phone").value = "";
                     document.getElementById("edit-employee-email").value = "";
+                    document.getElementById("edit-employee-designation").value = ""; // Clear designation
                 }
             } catch (error) {
                 console.error("Error fetching employee details for edit:", error);
@@ -1651,12 +1747,13 @@
             const name = document.getElementById("add-employee-name").value.trim();
             const phone = document.getElementById("add-employee-phone").value.trim();
             const email = document.getElementById("add-employee-email").value.trim();
+            const designation = document.getElementById("add-employee-designation").value.trim(); // New designation field
             const isSpecial = addSpecialEmployeeCheckbox.checked;
             const branch = addEmployeeBranchDropdown.value;
             const subdivision = addEmployeeSubdivisionDropdown.value;
 
-            if (!empId || !name) { // Email and Phone are optional for creation if assigned later
-                showModal("Please fill in Employee ID and Name.", null, true);
+            if (!empId || !name || !designation) { // Designation is now required
+                showModal("Please fill in Employee ID, Name, and Designation.", null, true);
                 return;
             }
 
@@ -1665,7 +1762,7 @@
                 return;
             }
 
-            showModal(`Are you sure you want to add employee "${name}" with ID "${empId}"?`, async (confirm) => {
+            showModal(`Are you sure you want to add employee "${name}" with ID "${empId}" and Designation "${designation}"?`, async (confirm) => {
                 if (confirm) {
                     showLoadingModal("Adding employee...");
                     try {
@@ -1712,6 +1809,7 @@
                             name: name,
                             phone: phone || null, // Allow phone to be optional
                             email: email || null, // Allow email to be optional
+                            des: designation, // Store designation
                             isSpecial: isSpecial || null // Store as null if false
                         };
 
@@ -1736,6 +1834,7 @@
                             employeeName: name,
                             phone: phone,
                             email: email,
+                            designation: designation, // Log designation
                             isSpecial: isSpecial,
                             branch: isSpecial ? 'N/A' : branch,
                             subdivision: isSpecial ? 'Special' : subdivision
@@ -1749,6 +1848,7 @@
                         document.getElementById("add-employee-name").value = "";
                         document.getElementById("add-employee-phone").value = "";
                         document.getElementById("add-employee-email").value = "";
+                        document.getElementById("add-employee-designation").value = ""; // Clear designation
                         addSpecialEmployeeCheckbox.checked = false;
                         addBranchSubContainer.classList.remove('hidden');
                         addEmployeeBranchDropdown.value = "";
@@ -1773,6 +1873,7 @@
             const name = document.getElementById("edit-employee-name").value.trim();
             const phone = document.getElementById("edit-employee-phone").value.trim();
             const email = document.getElementById("edit-employee-email").value.trim();
+            const designation = document.getElementById("edit-employee-designation").value.trim(); // Get designation
             const isSpecial = editSpecialEmployeeCheckbox.checked;
             const branch = editEmployeeBranchDropdown.value;
             const subdivision = editEmployeeSubdivisionDropdown.value;
@@ -1782,8 +1883,8 @@
                 return;
             }
 
-            if (!name) { // Phone and Email are optional for update
-                showModal("Employee Name is compulsory.", null, true);
+            if (!name || !designation) { // Name and Designation are compulsory
+                showModal("Employee Name and Designation are compulsory.", null, true);
                 return;
             }
 
@@ -1819,6 +1920,7 @@
                             name: name,
                             phone: phone || null,
                             email: email || null,
+                            des: designation, // Update designation
                             isSpecial: isSpecial || null
                         };
 
@@ -1844,6 +1946,7 @@
                         document.getElementById("edit-employee-name").value = "";
                         document.getElementById("edit-employee-phone").value = "";
                         document.getElementById("edit-employee-email").value = "";
+                        document.getElementById("edit-employee-designation").value = ""; // Clear designation
                         editEmployeeSelect.innerHTML = `<option value="">Select Employee</option>`;
                         editEmployeeSelect.disabled = true;
                         editSpecialEmployeeCheckbox.checked = false;
@@ -2855,7 +2958,7 @@
         padding: 8px 18px;
         border: none;
         font-weight: 600;
-        border-radius: 6鸣px;
+        border-radius: 6鳴px;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
         cursor: pointer;
         transition: background 0.2s ease;
@@ -3035,6 +3138,17 @@
 
         <div id="tab-individual" class="tab-content hidden">
             <div class="bg-white p-6 rounded shadow space-y-6">
+                <div class="flex flex-wrap gap-4 items-end mb-4">
+                    <!-- Search by Employee ID -->
+                    <div class="flex-grow">
+                        <label class="block text-sm font-medium text-gray-700">Search by Employee ID</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="search-by-id-input" class="form-input border rounded px-3 py-2 w-full" placeholder="Enter Employee ID">
+                            <button id="search-by-id-btn" class="bg-blue-600 text-white px-4 py-2 rounded font-medium">Search</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex flex-wrap gap-4 items-end">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Branch</label>
@@ -3078,6 +3192,12 @@
                         👤 Load Individual Records
                     </button>
                 </div>
+
+                <!-- Employee Details Header -->
+                <div id="indiv-employee-details-header" class="bg-gray-100 p-3 rounded-md shadow-sm mt-4 hidden">
+                    <!-- Details will be dynamically inserted here -->
+                </div>
+
 
                 <div id="loading-individual" class="text-center text-gray-500 py-4 hidden">
                     <div class="flex items-center justify-center">
@@ -3165,6 +3285,12 @@
                                 placeholder="Enter employee name">
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700">Designation <span
+                                    class="text-red-500">*</span></label>
+                            <input type="text" id="add-employee-designation" class="form-input border rounded px-3 py-2 w-full"
+                                placeholder="e.g., Sales Executive">
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700">Phone (Optional)</label>
                             <input type="text" id="add-employee-phone"
                                 class="form-input border rounded px-3 py-2 w-full" placeholder="Enter phone number">
@@ -3240,6 +3366,11 @@
                             <label class="block text-sm font-medium text-gray-700">Employee Name</label>
                             <input type="text" id="edit-employee-name"
                                 class="form-input border rounded px-3 py-2 w-full" placeholder="Enter employee name">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Designation</label>
+                            <input type="text" id="edit-employee-designation"
+                                class="form-input border rounded px-3 py-2 w-full" placeholder="Enter designation">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Phone</label>
