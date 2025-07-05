@@ -63,7 +63,9 @@
         }
 
         .form-group input[type="email"],
-        .form-group input[type="password"] {
+        .form-group input[type="password"],
+        .form-group input[type="text"],
+        .form-group input[type="tel"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #e0e0e0;
@@ -74,7 +76,9 @@
         }
 
         .form-group input[type="email"]:focus,
-        .form-group input[type="password"]:focus {
+        .form-group input[type="password"]:focus,
+        .form-group input[type="text"]:focus,
+        .form-group input[type="tel"]:focus {
             outline: none;
             border-color: #007bff;
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
@@ -383,21 +387,59 @@
 </head>
 
 <body>
-    <!-- Login Screen -->
-    <div id="login-screen" class="container">
+    <!-- Login/Signup Container -->
+    <div id="auth-container" class="container">
         <h1>Absentease Self-Attendance</h1>
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" placeholder="Enter your email">
+
+        <!-- Login Form -->
+        <div id="login-form" class="space-y-4">
+            <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" placeholder="Enter your email">
+            </div>
+            <div class="form-group">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" placeholder="Enter your password">
+            </div>
+            <button id="login-btn" class="btn btn-primary">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <div id="login-message" class="message error"></div>
+            <button id="show-signup-btn" class="btn btn-info mt-4">
+                New Employee? Sign Up
+            </button>
         </div>
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" placeholder="Enter your password">
+
+        <!-- Signup Form -->
+        <div id="signup-form" class="space-y-4 hidden">
+            <div class="form-group">
+                <label for="signup-name">Name</label>
+                <input type="text" id="signup-name" placeholder="Enter your full name">
+            </div>
+            <div class="form-group">
+                <label for="signup-email">Email</label>
+                <input type="email" id="signup-email" placeholder="Enter your email">
+            </div>
+            <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input type="password" id="signup-password" placeholder="Create a password">
+            </div>
+            <div class="form-group">
+                <label for="signup-employee-id">Employee ID</label>
+                <input type="text" id="signup-employee-id" placeholder="Enter your employee ID">
+            </div>
+            <div class="form-group">
+                <label for="signup-phone">Phone Number</label>
+                <input type="tel" id="signup-phone" placeholder="Enter your phone number">
+            </div>
+            <button id="signup-btn" class="btn btn-primary">
+                <i class="fas fa-user-plus"></i> Sign Up
+            </button>
+            <div id="signup-message" class="message error"></div>
+            <button id="show-login-btn" class="btn btn-info mt-4">
+                Already have an account? Login
+            </button>
         </div>
-        <button id="login-btn" class="btn btn-primary">
-            <i class="fas fa-sign-in-alt"></i> Login
-        </button>
-        <div id="login-message" class="message error"></div>
     </div>
 
     <!-- Main App Screen -->
@@ -414,9 +456,7 @@
 
         <div id="location-status" class="location-info">
             <p><strong>Location Status:</strong> <span id="location-message">Checking location...</span></p>
-            <p>Your Location: <span id="user-coords">N/A</span></p>
-            <p>Branch Location: <span id="branch-coords">N/A</span></p>
-            <p>Distance: <span id="distance-display">N/A</span></p>
+            <!-- GPS coordinates removed from UI -->
         </div>
 
         <div id="attendance-section" class="attendance-form" style="display: none;">
@@ -470,9 +510,9 @@
     </div>
 
     <script type="module">
- // Firebase Modular SDK v10+ imports
+        // Firebase Modular SDK v10+ imports
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
         import { getDatabase, ref, get, set, update } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js';
 
         const firebaseConfig = {
@@ -491,19 +531,33 @@
         const db = getDatabase(app);
 
         // DOM Elements
-        const loginScreen = document.getElementById('login-screen');
+        const authContainer = document.getElementById('auth-container');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
         const appScreen = document.getElementById('app-screen');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
+
+        // Login Elements
+        const loginEmailInput = document.getElementById('login-email');
+        const loginPasswordInput = document.getElementById('login-password');
         const loginBtn = document.getElementById('login-btn');
         const loginMessage = document.getElementById('login-message');
+        const showSignupBtn = document.getElementById('show-signup-btn');
+
+        // Signup Elements
+        const signupNameInput = document.getElementById('signup-name');
+        const signupEmailInput = document.getElementById('signup-email');
+        const signupPasswordInput = document.getElementById('signup-password');
+        const signupEmployeeIdInput = document.getElementById('signup-employee-id');
+        const signupPhoneInput = document.getElementById('signup-phone');
+        const signupBtn = document.getElementById('signup-btn');
+        const signupMessage = document.getElementById('signup-message');
+        const showLoginBtn = document.getElementById('show-login-btn');
+
+        // App Elements
         const logoutBtn = document.getElementById('logout-btn');
         const userDisplayName = document.getElementById('user-display-name');
         const locationStatusDiv = document.getElementById('location-status');
         const locationMessageSpan = document.getElementById('location-message');
-        const userCoordsSpan = document.getElementById('user-coords');
-        const branchCoordsSpan = document.getElementById('branch-coords');
-        const distanceDisplaySpan = document.getElementById('distance-display');
         const attendanceSection = document.getElementById('attendance-section');
         const morningCheck = document.getElementById('morning-check');
         const anEnters = document.getElementById('an-enters');
@@ -579,7 +633,6 @@
 
         // Modal event listeners
         closeModalBtn.addEventListener('click', hideModal);
-        // modalOkBtn.addEventListener('click', hideModal); // This is now set dynamically in showModal
         window.addEventListener('click', (event) => {
             if (event.target === messageModal) {
                 hideModal();
@@ -587,14 +640,15 @@
         });
 
         /**
-         * Displays a message on the login screen.
+         * Displays a message on the login/signup screen.
+         * @param {HTMLElement} messageElement - The element to display the message in.
          * @param {string} message - The message to display.
          * @param {boolean} isError - True if it's an error message, false for success.
          */
-        function displayLoginMessage(message, isError) {
-            loginMessage.textContent = message;
-            loginMessage.className = `message ${isError ? 'error' : 'success'}`;
-            loginMessage.style.display = 'block';
+        function displayAuthMessage(messageElement, message, isError) {
+            messageElement.textContent = message;
+            messageElement.className = `message ${isError ? 'error' : 'success'}`;
+            messageElement.style.display = 'block';
         }
 
         /**
@@ -612,14 +666,37 @@
         }
 
         /**
+         * Toggles between login and signup forms.
+         * @param {string} view - 'login' or 'signup'.
+         */
+        function toggleAuthView(view) {
+            if (view === 'login') {
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                displayAuthMessage(loginMessage, '', false); // Clear messages
+                displayAuthMessage(signupMessage, '', false);
+            } else {
+                loginForm.classList.add('hidden');
+                signupForm.classList.remove('hidden');
+                displayAuthMessage(loginMessage, '', false); // Clear messages
+                displayAuthMessage(signupMessage, '', false);
+            }
+        }
+
+        // Event listeners for toggling auth views
+        showSignupBtn.addEventListener('click', () => toggleAuthView('signup'));
+        showLoginBtn.addEventListener('click', () => toggleAuthView('login'));
+
+
+        /**
          * Handles user login.
          */
         loginBtn.addEventListener('click', async () => {
-            const email = emailInput.value;
-            const password = passwordInput.value;
+            const email = loginEmailInput.value;
+            const password = loginPasswordInput.value;
 
             if (!email || !password) {
-                displayLoginMessage('Please enter both email and password.', true);
+                displayAuthMessage(loginMessage, 'Please enter both email and password.', true);
                 return;
             }
 
@@ -635,7 +712,7 @@
                 if (userData && userData.role === 'employee') {
                     if (userData.id && userData.id.trim() !== "") {
                         currentUserData = userData;
-                        loginScreen.style.display = 'none';
+                        authContainer.style.display = 'none';
                         appScreen.style.display = 'flex';
                         userDisplayName.textContent = `${userData.name} (${userData.email})`;
                         checkUserLocationAndAttendance();
@@ -643,19 +720,72 @@
                         // id is missing, show blocking modal and log out
                         await signOut(auth);
                         showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.', () => {
-                            displayLoginMessage('Login failed: Employee ID missing. Contact Admin.', true);
+                            displayAuthMessage(loginMessage, 'Login failed: Employee ID missing. Contact Admin.', true);
                         });
                     }
                 } else {
                     await signOut(auth); // Log out non-employee users or users without data
                     showModal('Access Denied', 'You do not have employee access to this application.');
-                    displayLoginMessage('Access denied. Only employees can log in.', true);
+                    displayAuthMessage(loginMessage, 'Access denied. Only employees can log in.', true);
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                displayLoginMessage(`Login failed: ${error.message}`, true);
+                displayAuthMessage(loginMessage, `Login failed: ${error.message}`, true);
             }
         });
+
+        /**
+         * Handles new employee signup.
+         */
+        signupBtn.addEventListener('click', async () => {
+            const name = signupNameInput.value.trim();
+            const email = signupEmailInput.value.trim();
+            const password = signupPasswordInput.value.trim();
+            const empId = signupEmployeeIdInput.value.trim();
+            const phone = signupPhoneInput.value.trim();
+
+            if (!name || !email || !password || !empId || !phone) {
+                displayAuthMessage(signupMessage, 'Please fill in all fields.', true);
+                return;
+            }
+
+            if (password.length < 6) {
+                displayAuthMessage(signupMessage, 'Password should be at least 6 characters.', true);
+                return;
+            }
+
+            try {
+                // 1. Create user in Firebase Authentication
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // 2. Create user node in Realtime Database
+                const userRef = ref(db, `users/${user.uid}`);
+                await set(userRef, {
+                    name: name,
+                    phone: phone,
+                    email: email,
+                    role: "employee",
+                    id: empId,
+                    branch: "Main Branch", // Default branch for new signups
+                    subdivision: "Default Subdivision" // Default subdivision
+                });
+
+                showModal('Signup Successful', 'Your account has been created. You can now log in.', () => {
+                    toggleAuthView('login'); // Switch to login view after successful signup
+                    signupNameInput.value = '';
+                    signupEmailInput.value = '';
+                    signupPasswordInput.value = '';
+                    signupEmployeeIdInput.value = '';
+                    signupPhoneInput.value = '';
+                });
+                displayAuthMessage(signupMessage, 'Signup successful!', false);
+            } catch (error) {
+                console.error('Signup error:', error);
+                displayAuthMessage(signupMessage, `Signup failed: ${error.message}`, true);
+            }
+        });
+
 
         /**
          * Handles user logout.
@@ -663,17 +793,17 @@
         logoutBtn.addEventListener('click', async () => {
             try {
                 await signOut(auth);
-                loginScreen.style.display = 'flex';
+                authContainer.style.display = 'flex';
                 appScreen.style.display = 'none';
-                emailInput.value = '';
-                passwordInput.value = '';
-                displayLoginMessage('', false); // Clear any previous messages
+                loginEmailInput.value = '';
+                loginPasswordInput.value = '';
+                displayAuthMessage(loginMessage, '', false); // Clear any previous messages
                 // Reset attendance form and location info
                 attendanceSection.style.display = 'none';
                 locationMessageSpan.textContent = 'Checking location...';
-                userCoordsSpan.textContent = 'N/A';
-                branchCoordsSpan.textContent = 'N/A';
-                distanceDisplaySpan.textContent = 'N/A';
+                // userCoordsSpan.textContent = 'N/A'; // Removed from UI
+                // branchCoordsSpan.textContent = 'N/A'; // Removed from UI
+                // distanceDisplaySpan.textContent = 'N/A'; // Removed from UI
                 morningCheck.checked = false;
                 anNone.checked = true;
                 submitAttendanceBtn.disabled = true;
@@ -710,7 +840,22 @@
                         });
                     },
                     (error) => {
-                        reject(new Error(`Geolocation error: ${error.message}`));
+                        let errorMessage = 'Unknown geolocation error.';
+                        switch (error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Location access denied. Please enable location services for this site.';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'Location information is unavailable.';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'The request to get user location timed out.';
+                                break;
+                            case error.UNKNOWN_ERROR:
+                                errorMessage = 'An unknown geolocation error occurred.';
+                                break;
+                        }
+                        reject(new Error(errorMessage));
                     }, {
                     enableHighAccuracy: true,
                     timeout: 60000,
@@ -741,29 +886,32 @@
          */
         async function checkUserLocationAndAttendance() {
             locationMessageSpan.textContent = 'Checking location...';
-            userCoordsSpan.textContent = 'N/A';
-            branchCoordsSpan.textContent = 'N/A';
-            distanceDisplaySpan.textContent = 'N/A';
+            // userCoordsSpan.textContent = 'N/A'; // Removed from UI
+            // branchCoordsSpan.textContent = 'N/A'; // Removed from UI
+            // distanceDisplaySpan.textContent = 'N/A'; // Removed from UI
             submitAttendanceBtn.disabled = true;
             attendanceSection.style.display = 'none';
 
             if (!currentUserData || !currentUserData.id || currentUserData.id.trim() === "") {
                 showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance cannot be marked.', () => {
-                    // Optionally log out or disable more features if id is critical
                     submitAttendanceBtn.disabled = true;
                     attendanceSection.style.display = 'none';
                 });
-                locationMessageSpan.textContent = 'Error: Employee ID missing.';
+                locationMessageSpan.textContent = '❌ Location Error: Employee ID missing.';
+                locationStatusDiv.classList.remove('bg-green-100', 'border-green-200');
+                locationStatusDiv.classList.add('bg-red-100', 'border-red-200');
                 return;
             }
 
             try {
                 userLocation = await getUserLocation();
-                userCoordsSpan.textContent = `${userLocation.latitude.toFixed(6)}, ${userLocation.longitude.toFixed(6)}`;
+                // userCoordsSpan.textContent = `${userLocation.latitude.toFixed(6)}, ${userLocation.longitude.toFixed(6)}`; // Removed from UI
 
                 if (!currentUserData.branch) {
                     showModal('Error', 'User branch information is missing. Please contact Admin.');
-                    locationMessageSpan.textContent = 'Error: Missing branch info.';
+                    locationMessageSpan.textContent = '❌ Location Error: Missing branch info.';
+                    locationStatusDiv.classList.remove('bg-green-100', 'border-green-200');
+                    locationStatusDiv.classList.add('bg-red-100', 'border-red-200');
                     return;
                 }
 
@@ -771,27 +919,29 @@
 
                 if (!branchLocation || typeof branchLocation.lat === 'undefined' || typeof branchLocation.lng === 'undefined' || typeof branchLocation.radius === 'undefined') {
                     showModal('Configuration Error', `Branch location data for "${currentUserData.branch}" is incomplete. Please contact admin.`);
-                    locationMessageSpan.textContent = `Error: Branch data incomplete for ${currentUserData.branch}.`;
+                    locationMessageSpan.textContent = `❌ Location Error: Branch data incomplete for ${currentUserData.branch}.`;
+                    locationStatusDiv.classList.remove('bg-green-100', 'border-green-200');
+                    locationStatusDiv.classList.add('bg-red-100', 'border-red-200');
                     return;
                 }
 
-                branchCoordsSpan.textContent = `${branchLocation.lat.toFixed(6)}, ${branchLocation.lng.toFixed(6)}`;
+                // branchCoordsSpan.textContent = `${branchLocation.lat.toFixed(6)}, ${branchLocation.lng.toFixed(6)}`; // Removed from UI
 
                 const distance = haversineDistance(
                     userLocation.latitude, userLocation.longitude,
                     branchLocation.lat, branchLocation.lng
                 );
-                distanceDisplaySpan.textContent = `${distance.toFixed(2)} km`;
+                // distanceDisplaySpan.textContent = `${distance.toFixed(2)} km`; // Removed from UI
 
                 if (distance <= branchLocation.radius) {
-                    locationMessageSpan.textContent = 'You are within the allowed branch radius.';
+                    locationMessageSpan.textContent = '✅ Location Verified';
                     locationStatusDiv.classList.remove('bg-red-100', 'border-red-200');
                     locationStatusDiv.classList.add('bg-green-100', 'border-green-200');
                     attendanceSection.style.display = 'block';
                     submitAttendanceBtn.disabled = false;
                     loadTodaysAttendance(); // Load existing attendance if within radius
                 } else {
-                    locationMessageSpan.textContent = `You are outside the allowed branch radius (${branchLocation.radius} km).`;
+                    locationMessageSpan.textContent = '❌ Location Error';
                     locationStatusDiv.classList.remove('bg-green-100', 'border-green-200');
                     locationStatusDiv.classList.add('bg-red-100', 'border-red-200');
                     showModal('Location Error', `You are ${distance.toFixed(2)} km away, which is outside the allowed ${branchLocation.radius} km radius for ${currentUserData.branch}. Attendance cannot be marked.`);
@@ -800,7 +950,7 @@
                 }
             } catch (error) {
                 console.error('Location check error:', error);
-                locationMessageSpan.textContent = `Location error: ${error.message}`;
+                locationMessageSpan.textContent = `❌ Location Error: ${error.message}`;
                 locationStatusDiv.classList.remove('bg-green-100', 'border-green-200');
                 locationStatusDiv.classList.add('bg-red-100', 'border-red-200');
                 showModal('Location Error', `Could not get your location: ${error.message}. Please ensure location services are enabled.`);
@@ -1046,35 +1196,36 @@
                     if (userData && userData.role === 'employee') {
                         if (userData.id && userData.id.trim() !== "") {
                             currentUserData = userData;
-                            loginScreen.style.display = 'none';
+                            authContainer.style.display = 'none';
                             appScreen.style.display = 'flex';
                             userDisplayName.textContent = `${userData.name} (${userData.email})`;
                             checkUserLocationAndAttendance();
                         } else {
                             // id is missing, show blocking modal and log out
                             signOut(auth); // Log out immediately
-                            loginScreen.style.display = 'flex'; // Show login screen
+                            authContainer.style.display = 'flex'; // Show login screen
                             appScreen.style.display = 'none'; // Hide app screen
                             showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.');
                         }
                     } else {
                         // Not an employee or user data missing, log out
                         signOut(auth);
-                        loginScreen.style.display = 'flex';
+                        authContainer.style.display = 'flex';
                         appScreen.style.display = 'none';
                         showModal('Access Denied', 'You do not have employee access to this application.');
                     }
                 }).catch(error => {
                     console.error("Error fetching user role:", error);
                     signOut(auth); // Log out on error
-                    loginScreen.style.display = 'flex';
+                    authContainer.style.display = 'flex';
                     appScreen.style.display = 'none';
                     showModal('Error', 'Failed to retrieve user data. Please try again.');
                 });
             } else {
                 // No user is signed in, show login screen
-                loginScreen.style.display = 'flex';
+                authContainer.style.display = 'flex';
                 appScreen.style.display = 'none';
+                toggleAuthView('login'); // Ensure login form is shown by default
             }
         });
 
