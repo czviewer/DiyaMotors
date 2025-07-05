@@ -2123,9 +2123,16 @@
 
         // --- Add Subdivision Logic ---
         addSubdivisionBtn.addEventListener('click', async () => {
+            // Role-based access check
+            if (currentUserRole !== 'Admin' && currentUserRole !== 'Dev') {
+                showModal("Access Denied: You do not have permission to add subdivisions.", null, true);
+                return;
+            }
+
             const branchName = addSubdivisionBranchDropdown.value;
             const subdivisionName = addSubdivisionNameInput.value.trim().toLowerCase();
 
+            // Input validation
             if (!branchName) {
                 showModal("Please select a branch.", null, true);
                 return;
@@ -2136,24 +2143,34 @@
             }
 
             showModal(`Are you sure you want to add subdivision "${subdivisionName}" to branch "${branchName}"?`, async (confirm) => {
-                if (!confirm) return;
+                if (!confirm) return; // If user cancels, stop.
 
-                showLoadingModal("Adding subdivision...");
+                showLoadingModal("Adding subdivision..."); // Show loading indicator
                 try {
+                    // Reference to the potential new subdivision location
                     const subdivisionRef = ref(db, `branches/${branchName}/subdivisions/${subdivisionName}`);
+                    // Check if a subdivision with this name already exists under the selected branch
                     const existingSubdivision = await get(subdivisionRef);
 
                     if (existingSubdivision.exists()) {
-                        hideLoadingModal();
-                        showModal(`Subdivision "${subdivisionName}" already exists under "${branchName}".`, null, true);
-                        return;
+                        hideLoadingModal(); // Hide loading indicator
+                        showModal(`Subdivision "${subdivisionName}" already exists under "${branchName}".`, null, true); // Inform user about duplicate
+                        return; // Stop execution
                     }
 
-                    await set(subdivisionRef, { employees: {} }); // Initialize with empty employees
+                    // Construct the data to be written for the new subdivision
+                    const newSubdivisionData = {
+                        employees: {}, // Initialize with an empty employees object
+                        createdBy: currentUserName, // Store the name of the admin/dev user who created it
+                        timestamp: getNow().toISOString() // Store the creation timestamp
+                    };
 
-                    // Log activity
+                    // Perform the actual write operation to Firebase Realtime Database
+                    await set(subdivisionRef, newSubdivisionData);
+
+                    // Log the activity after successful database write
                     const activityLogsRef = ref(db, `activityLogs/${getNow().toISOString().split('T')[0]}`);
-                    const newLogRef = push(activityLogsRef);
+                    const newLogRef = push(activityLogsRef); // Generate a new unique key for the log entry
                     await set(newLogRef, {
                         timestamp: getNow().toISOString(),
                         by: currentUserName,
@@ -2163,14 +2180,16 @@
                         subdivisionName: subdivisionName
                     });
 
-                    hideLoadingModal();
-                    showModal(`Subdivision "${subdivisionName}" added successfully to "${branchName}"!`);
+                    hideLoadingModal(); // Hide loading indicator
+                    showModal(`Subdivision "${subdivisionName}" added successfully to "${branchName}"!`); // Show success message
+
+                    // Clear the input field and refresh the list to reflect the new subdivision
                     addSubdivisionNameInput.value = '';
-                    populateBranchesAndSubdivisions(); // Refresh the list
+                    populateBranchesAndSubdivisions(); // Re-populate the list of branches and subdivisions
                 } catch (error) {
-                    hideLoadingModal();
-                    console.error("Error adding subdivision:", error);
-                    showModal("Failed to add subdivision: " + error.message, null, true);
+                    hideLoadingModal(); // Hide loading indicator on error
+                    console.error("Error adding subdivision:", error); // Log the detailed error to console
+                    showModal("Failed to add subdivision: " + error.message, null, true); // Show a user-friendly error message
                 }
             });
         });
