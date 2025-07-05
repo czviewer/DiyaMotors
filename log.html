@@ -394,11 +394,9 @@
                 }
 
                 // Redirect based on user role
-                if (userData.role === 'admin' || userData.role === 'dev') {
+                if (userData.role === 'Admin' || userData.role === 'Dev') {
                     window.location.href = 'admin.html'; // Redirect to admin dashboard
-                } else if (userData.role === 'employee') {
-                    window.location.href = 'self.html'; // Redirect to employee self-attendance
-                } else {
+                }  else {
                     // Role is unrecognized or invalid
                     await signOut(auth); // Log out the user immediately
                     showModal('Access Denied', 'Your role is not recognized. Please contact Admin.', () => {
@@ -435,7 +433,7 @@
                         return;
                     }
 
-                    if (userData.role === 'admin' || userData.role === 'dev') {
+                    if (userData.role === 'Admin' || userData.role === 'Dev') {
                         window.location.href = 'admin.html';
                     } else if (userData.role === 'employee') {
                         window.location.href = 'self.html';
