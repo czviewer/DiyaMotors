@@ -512,7 +512,7 @@
     <script type="module">
         // Firebase Modular SDK v10+ imports
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, deleteUser } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
         import { getDatabase, ref, get, set, update } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js';
 
         const firebaseConfig = {
@@ -754,34 +754,63 @@
                 return;
             }
 
+            let user = null;
             try {
                 // 1. Create user in Firebase Authentication
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
+                user = userCredential.user;
 
-                // 2. Create user node in Realtime Database
-                const userRef = ref(db, `users/${user.uid}`);
-                await set(userRef, {
-                    name: name,
-                    phone: phone,
-                    email: email,
-                    role: "employee",
-                    id: empId,
-                    branch: "Main Branch", // Default branch for new signups
-                    subdivision: "Default Subdivision" // Default subdivision
-                });
+                // 2. Check if empId exists and get branch/subdivision from a lookup table
+                // Assuming a structure like: /employee_id_details/{empId}: { branch: "...", subdivision: "..." }
+                // This structure is more suitable for client-side lookup and securing read access.
+                // IMPORTANT: Ensure Firebase Security Rules for '/employee_id_details' allow read access
+                // to authenticated users for specific empIds, but only admin write access.
+                const empIdDetailsRef = ref(db, `employee_id_details/${empId}`);
+                const empIdSnapshot = await get(empIdDetailsRef);
+                const empIdData = empIdSnapshot.val();
 
-                showModal('Signup Successful', 'Your account has been created. You can now log in.', () => {
-                    toggleAuthView('login'); // Switch to login view after successful signup
-                    signupNameInput.value = '';
-                    signupEmailInput.value = '';
-                    signupPasswordInput.value = '';
-                    signupEmployeeIdInput.value = '';
-                    signupPhoneInput.value = '';
-                });
-                displayAuthMessage(signupMessage, 'Signup successful!', false);
+                if (empIdData && empIdData.branch && empIdData.subdivision) {
+                    // empId found, extract branch and subdivision
+                    const branch = empIdData.branch;
+                    const subdivision = empIdData.subdivision;
+
+                    // 3. Save user node in Realtime Database with extracted branch and subdivision
+                    const userRef = ref(db, `users/${user.uid}`);
+                    await set(userRef, {
+                        name: name,
+                        phone: phone,
+                        email: email,
+                        role: "employee",
+                        id: empId,
+                        branch: branch,
+                        subdivision: subdivision
+                    });
+
+                    showModal('Signup Successful', 'Your account has been created. You can now log in.', () => {
+                        toggleAuthView('login'); // Switch to login view after successful signup
+                        signupNameInput.value = '';
+                        signupEmailInput.value = '';
+                        signupPasswordInput.value = '';
+                        signupEmployeeIdInput.value = '';
+                        signupPhoneInput.value = '';
+                    });
+                    displayAuthMessage(signupMessage, 'Signup successful!', false);
+                } else {
+                    // empId not found in lookup table
+                    if (user) {
+                        await deleteUser(user); // Delete the newly created Firebase Auth account
+                    }
+                    showModal('Employee ID Not Found', 'The employee ID you entered was not found. Please contact Admin.', () => {
+                        displayAuthMessage(signupMessage, 'Signup failed: Employee ID not found.', true);
+                    });
+                }
             } catch (error) {
                 console.error('Signup error:', error);
+                if (user && error.code !== 'auth/email-already-in-use') { // Don't delete if email already exists
+                    // If an error occurred after user creation but before DB save/ID check, delete user
+                    // This handles cases like network errors during DB write or empId lookup
+                    await deleteUser(user).catch(deleteError => console.error("Error deleting user:", deleteError));
+                }
                 displayAuthMessage(signupMessage, `Signup failed: ${error.message}`, true);
             }
         });
@@ -801,9 +830,6 @@
                 // Reset attendance form and location info
                 attendanceSection.style.display = 'none';
                 locationMessageSpan.textContent = 'Checking location...';
-                // userCoordsSpan.textContent = 'N/A'; // Removed from UI
-                // branchCoordsSpan.textContent = 'N/A'; // Removed from UI
-                // distanceDisplaySpan.textContent = 'N/A'; // Removed from UI
                 morningCheck.checked = false;
                 anNone.checked = true;
                 submitAttendanceBtn.disabled = true;
@@ -886,9 +912,6 @@
          */
         async function checkUserLocationAndAttendance() {
             locationMessageSpan.textContent = 'Checking location...';
-            // userCoordsSpan.textContent = 'N/A'; // Removed from UI
-            // branchCoordsSpan.textContent = 'N/A'; // Removed from UI
-            // distanceDisplaySpan.textContent = 'N/A'; // Removed from UI
             submitAttendanceBtn.disabled = true;
             attendanceSection.style.display = 'none';
 
@@ -905,7 +928,6 @@
 
             try {
                 userLocation = await getUserLocation();
-                // userCoordsSpan.textContent = `${userLocation.latitude.toFixed(6)}, ${userLocation.longitude.toFixed(6)}`; // Removed from UI
 
                 if (!currentUserData.branch) {
                     showModal('Error', 'User branch information is missing. Please contact Admin.');
@@ -925,13 +947,10 @@
                     return;
                 }
 
-                // branchCoordsSpan.textContent = `${branchLocation.lat.toFixed(6)}, ${branchLocation.lng.toFixed(6)}`; // Removed from UI
-
                 const distance = haversineDistance(
                     userLocation.latitude, userLocation.longitude,
                     branchLocation.lat, branchLocation.lng
                 );
-                // distanceDisplaySpan.textContent = `${distance.toFixed(2)} km`; // Removed from UI
 
                 if (distance <= branchLocation.radius) {
                     locationMessageSpan.textContent = '✅ Location Verified';
@@ -963,7 +982,7 @@
          * Loads today's attendance record for the current user.
          */
         async function loadTodaysAttendance() {
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const today = new Date().toISOString().split('T')[0]; //YYYY-MM-DD
             const employeeID = currentUserData.id; // Use id for attendance path
             const attendancePath = `attendance/${today}/${currentUserData.branch}/${currentUserData.subdivision || 'default'}/${employeeID}`;
             const attendanceRef = ref(db, attendancePath);
