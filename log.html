@@ -638,12 +638,14 @@
         let otpCountdownInterval = null;
 
         // Initialize RecaptchaVerifier
+        // The recaptchaVerifier needs to be rendered explicitly.
+        // It's attached to the 'recaptcha-container' div.
         window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible',
+            'size': 'invisible', // Invisible reCAPTCHA
             'callback': (response) => {
-                // reCAPTCHA solved, allows signInWithPhoneNumber.
-                // This callback is triggered when the reCAPTCHA is successfully executed.
-                // We don't need to do anything specific here as the button click will handle it.
+                // reCAPTCHA solved, this callback is triggered.
+                // You can proceed with signInWithPhoneNumber here if needed,
+                // but we'll trigger it explicitly from verifyPhoneBtn click.
             },
             'expired-callback': () => {
                 // Response expired. Ask user to solve reCAPTCHA again.
@@ -652,8 +654,9 @@
                 countdownTimer.textContent = '';
             }
         });
-        recaptchaVerifier.render().then((widgetId) => {
-            window.recaptchaWidgetId = widgetId;
+        // Render the reCAPTCHA widget
+        window.recaptchaVerifier.render().then((widgetId) => {
+            window.recaptchaWidgetId = widgetId; // Store widget ID for explicit reset
         });
 
 
@@ -771,7 +774,18 @@
         // Event listeners for toggling auth views
         showSignupBtn.addEventListener('click', () => toggleAuthView('signup'));
         showLoginBtn.addEventListener('click', () => toggleAuthView('login'));
-        backToLoginBtn.addEventListener('click', () => toggleAuthView('login'));
+        backToLoginBtn.addEventListener('click', () => {
+            // On going back to login, ensure OTP state is cleared
+            clearInterval(otpCountdownInterval);
+            countdownTimer.textContent = '';
+            resendOtpBtn.disabled = false;
+            confirmationResult = null;
+            phoneNumberToVerify = '';
+            if (window.recaptchaWidgetId !== undefined) {
+                grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA
+            }
+            toggleAuthView('login');
+        });
 
 
         /**
@@ -800,7 +814,8 @@
                 if (currentUserData && currentUserData.role === 'employee') {
                     if (currentUserData.phone && currentUserData.phone.trim() !== "") {
                         phoneNumberToVerify = currentUserData.phone;
-                        toggleAuthView('phone-verify'); // Proceed to phone verification
+                        // Successfully logged in with email/password, proceed to phone verification
+                        toggleAuthView('phone-verify');
                     } else {
                         // Phone number missing in DB
                         await signOut(auth); // Log out immediately
@@ -851,6 +866,11 @@
             countdownTimer.textContent = `(${OTP_COOLDOWN_SECONDS}s)`;
             let timeLeft = OTP_COOLDOWN_SECONDS;
 
+            // Clear any existing countdown to prevent multiple intervals
+            if (otpCountdownInterval) {
+                clearInterval(otpCountdownInterval);
+            }
+
             otpCountdownInterval = setInterval(() => {
                 timeLeft--;
                 const minutes = Math.floor(timeLeft / 60);
@@ -865,7 +885,7 @@
             }, 1000);
 
             try {
-                // Use the RecaptchaVerifier instance
+                // Use the RecaptchaVerifier instance to send OTP
                 confirmationResult = await signInWithPhoneNumber(auth, phoneNumberToVerify, window.recaptchaVerifier);
                 displayAuthMessage(otpMessage, 'OTP sent successfully!', false);
             } catch (error) {
@@ -874,7 +894,7 @@
                 countdownTimer.textContent = '';
                 console.error('Error sending OTP:', error);
                 displayAuthMessage(otpMessage, `Error sending OTP: ${error.message}`, true);
-                // Reset reCAPTCHA if there's an error
+                // Reset reCAPTCHA if there's an error to allow a new attempt
                 if (window.recaptchaWidgetId !== undefined) {
                     grecaptcha.reset(window.recaptchaWidgetId);
                 }
@@ -902,6 +922,7 @@
                 await confirmationResult.confirm(otp);
                 // OTP verified, user is signed in
                 clearInterval(otpCountdownInterval); // Stop countdown
+                sessionStorage.setItem('otpVerified', 'true'); // Set OTP verified flag
                 showModal('Login Successful', 'You have successfully logged in!', () => {
                     authContainer.style.display = 'none';
                     appScreen.style.display = 'flex';
@@ -1031,6 +1052,7 @@
         logoutBtn.addEventListener('click', async () => {
             try {
                 await signOut(auth);
+                sessionStorage.removeItem('otpVerified'); // Clear OTP verified flag on logout
                 authContainer.style.display = 'flex';
                 appScreen.style.display = 'none';
                 loginEmailInput.value = '';
@@ -1054,9 +1076,11 @@
                 clearInterval(otpCountdownInterval); // Clear any active OTP countdown
                 countdownTimer.textContent = ''; // Clear countdown display
                 resendOtpBtn.disabled = false; // Enable resend button
+                // Reset reCAPTCHA when logging out
                 if (window.recaptchaWidgetId !== undefined) {
-                    grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA
+                    grecaptcha.reset(window.recaptchaWidgetId);
                 }
+                toggleAuthView('login'); // Ensure login form is shown
             } catch (error) {
                 console.error('Logout error:', error);
                 showModal('Logout Error', `Failed to log out: ${error.message}`);
@@ -1428,20 +1452,43 @@
                 try {
                     const snapshot = await get(userRef);
                     const userData = snapshot.val();
+
+                    // Crucial: Check OTP verification status from sessionStorage
+                    const otpVerified = sessionStorage.getItem('otpVerified');
+
                     if (userData && userData.role === 'employee') {
                         if (userData.id && userData.id.trim() !== "") {
-                            currentUserData = userData;
-                            authContainer.style.display = 'none';
-                            appScreen.style.display = 'flex';
-                            userDisplayName.textContent = `${userData.name} (${userData.email})`;
-                            checkUserLocationAndAttendance();
+                            currentUserData = userData; // Store current user data
+
+                            if (otpVerified === 'true') {
+                                // OTP already verified, proceed to app screen
+                                authContainer.style.display = 'none';
+                                appScreen.style.display = 'flex';
+                                userDisplayName.textContent = `${userData.name} (${userData.email})`;
+                                checkUserLocationAndAttendance();
+                            } else {
+                                // User logged in but OTP not verified, redirect to OTP flow
+                                authContainer.style.display = 'flex';
+                                appScreen.style.display = 'none';
+                                if (userData.phone && userData.phone.trim() !== "") {
+                                    phoneNumberToVerify = userData.phone; // Set phone for OTP sending
+                                    toggleAuthView('phone-verify'); // Go to phone verification
+                                    showModal('Verification Required', 'Please verify your phone number to access the app.');
+                                } else {
+                                    // Phone number missing for an existing user, log out
+                                    await signOut(auth);
+                                    showModal('Phone Not Found', 'Your registered phone number is missing. Please contact Admin.', () => {
+                                        toggleAuthView('login');
+                                    });
+                                }
+                            }
                         } else {
-                            // id is missing, show blocking modal and log out
-                            await signOut(auth); // Log out immediately
-                            authContainer.style.display = 'flex'; // Show login screen
-                            appScreen.style.display = 'none'; // Hide app screen
+                            // Employee ID is missing, log out
+                            await signOut(auth);
+                            authContainer.style.display = 'flex';
+                            appScreen.style.display = 'none';
                             showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.');
-                            toggleAuthView('login'); // Ensure login form is shown
+                            toggleAuthView('login');
                         }
                     } else {
                         // Not an employee or user data missing, log out
@@ -1449,15 +1496,15 @@
                         authContainer.style.display = 'flex';
                         appScreen.style.display = 'none';
                         showModal('Access Denied', 'You do not have employee access to this application.');
-                        toggleAuthView('login'); // Ensure login form is shown
+                        toggleAuthView('login');
                     }
                 } catch (error) {
-                    console.error("Error fetching user role:", error);
+                    console.error("Error fetching user role or during auth state check:", error);
                     await signOut(auth); // Log out on error
                     authContainer.style.display = 'flex';
                     appScreen.style.display = 'none';
                     showModal('Error', 'Failed to retrieve user data. Please try again.');
-                    toggleAuthView('login'); // Ensure login form is shown
+                    toggleAuthView('login');
                 }
             } else {
                 // No user is signed in, show login screen
@@ -1470,6 +1517,8 @@
         // Set up a timer to periodically update form disablement based on time
         setInterval(updateFormDisablementBasedOnTime, 60000); // Check every minute
     </script>
+    <!-- Google reCAPTCHA API script -->
+    <!-- The onloadCallback is implicitly called by the reCAPTCHA script once it's loaded -->
     <script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit" async defer></script>
 </body>
 
