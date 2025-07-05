@@ -65,7 +65,8 @@
         .form-group input[type="email"],
         .form-group input[type="password"],
         .form-group input[type="text"],
-        .form-group input[type="tel"] {
+        .form-group input[type="tel"],
+        .form-group input[type="number"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #e0e0e0;
@@ -78,7 +79,8 @@
         .form-group input[type="email"]:focus,
         .form-group input[type="password"]:focus,
         .form-group input[type="text"]:focus,
-        .form-group input[type="tel"]:focus {
+        .form-group input[type="tel"]:focus,
+        .form-group input[type="number"]:focus {
             outline: none;
             border-color: #007bff;
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
@@ -410,6 +412,40 @@
             </button>
         </div>
 
+        <!-- Phone Verification Form (after email/password login) -->
+        <div id="phone-verify-form" class="space-y-4 hidden">
+            <p class="text-lg text-gray-700 mb-4">Please enter the last 4 digits of your registered phone number.</p>
+            <div class="form-group">
+                <label for="last-4-digits">Last 4 Digits</label>
+                <input type="number" id="last-4-digits" placeholder="e.g., 1234" maxlength="4" oninput="this.value=this.value.slice(0,4)">
+            </div>
+            <button id="verify-phone-btn" class="btn btn-primary">
+                Verify Phone
+            </button>
+            <div id="phone-verify-message" class="message error"></div>
+            <button id="back-to-login-btn" class="btn btn-info mt-4">
+                Back to Login
+            </button>
+        </div>
+
+        <!-- OTP Verification Form -->
+        <div id="otp-form" class="space-y-4 hidden">
+            <p class="text-lg text-gray-700 mb-4">An OTP has been sent to your registered phone number.</p>
+            <div class="form-group">
+                <label for="otp-input">Enter OTP</label>
+                <input type="number" id="otp-input" placeholder="Enter 6-digit OTP" maxlength="6" oninput="this.value=this.value.slice(0,6)">
+            </div>
+            <button id="verify-otp-btn" class="btn btn-primary">
+                Verify OTP
+            </button>
+            <div id="otp-message" class="message error"></div>
+            <button id="resend-otp-btn" class="btn btn-info mt-4" disabled>
+                Resend OTP <span id="countdown-timer"></span>
+            </button>
+            <div id="recaptcha-container"></div>
+        </div>
+
+
         <!-- Signup Form -->
         <div id="signup-form" class="space-y-4 hidden">
             <div class="form-group">
@@ -429,8 +465,8 @@
                 <input type="text" id="signup-employee-id" placeholder="Enter your employee ID">
             </div>
             <div class="form-group">
-                <label for="signup-phone">Phone Number</label>
-                <input type="tel" id="signup-phone" placeholder="Enter your phone number">
+                <label for="signup-phone">Phone Number (e.g., +919876543210)</label>
+                <input type="tel" id="signup-phone" placeholder="Enter your phone number with country code">
             </div>
             <button id="signup-btn" class="btn btn-primary">
                 <i class="fas fa-user-plus"></i> Sign Up
@@ -512,7 +548,12 @@
     <script type="module">
         // Firebase Modular SDK v10+ imports
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, deleteUser } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
+        import {
+            getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+            createUserWithEmailAndPassword, deleteUser,
+            RecaptchaVerifier, signInWithPhoneNumber,
+            setPersistence, browserSessionPersistence
+        } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
         import { getDatabase, ref, get, set, update } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js';
 
         const firebaseConfig = {
@@ -533,6 +574,8 @@
         // DOM Elements
         const authContainer = document.getElementById('auth-container');
         const loginForm = document.getElementById('login-form');
+        const phoneVerifyForm = document.getElementById('phone-verify-form');
+        const otpForm = document.getElementById('otp-form');
         const signupForm = document.getElementById('signup-form');
         const appScreen = document.getElementById('app-screen');
 
@@ -542,6 +585,20 @@
         const loginBtn = document.getElementById('login-btn');
         const loginMessage = document.getElementById('login-message');
         const showSignupBtn = document.getElementById('show-signup-btn');
+
+        // Phone Verification Elements
+        const last4DigitsInput = document.getElementById('last-4-digits');
+        const verifyPhoneBtn = document.getElementById('verify-phone-btn');
+        const phoneVerifyMessage = document.getElementById('phone-verify-message');
+        const backToLoginBtn = document.getElementById('back-to-login-btn');
+
+        // OTP Elements
+        const otpInput = document.getElementById('otp-input');
+        const verifyOtpBtn = document.getElementById('verify-otp-btn');
+        const otpMessage = document.getElementById('otp-message');
+        const resendOtpBtn = document.getElementById('resend-otp-btn');
+        const countdownTimer = document.getElementById('countdown-timer');
+        const recaptchaContainer = document.getElementById('recaptcha-container');
 
         // Signup Elements
         const signupNameInput = document.getElementById('signup-name');
@@ -574,18 +631,31 @@
         const closeModalBtn = messageModal.querySelector('.close-button');
         const modalOkBtn = messageModal.querySelector('.btn-ok');
 
-        // Global variables
-        let currentUserData = null;
-        let userLocation = null;
-        let branchLocation = null;
-        let attendanceRecord = {
-            morning: false,
-            afternoon: 'None',
-            late: false,
-            leave: 0,
-            morningLocked: false,
-            anLocked: false
-        };
+        // Global variables for Phone Auth
+        let confirmationResult = null;
+        let phoneNumberToVerify = ''; // Stores the full phone number from DB
+        const OTP_COOLDOWN_SECONDS = 120; // 2 minutes
+        let otpCountdownInterval = null;
+
+        // Initialize RecaptchaVerifier
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible',
+            'callback': (response) => {
+                // reCAPTCHA solved, allows signInWithPhoneNumber.
+                // This callback is triggered when the reCAPTCHA is successfully executed.
+                // We don't need to do anything specific here as the button click will handle it.
+            },
+            'expired-callback': () => {
+                // Response expired. Ask user to solve reCAPTCHA again.
+                showModal('reCAPTCHA Expired', 'Please re-verify that you are not a robot by trying again.');
+                resendOtpBtn.disabled = false; // Allow resend if reCAPTCHA expires
+                countdownTimer.textContent = '';
+            }
+        });
+        recaptchaVerifier.render().then((widgetId) => {
+            window.recaptchaWidgetId = widgetId;
+        });
+
 
         /**
          * Haversine formula to calculate distance between two lat/lng points.
@@ -666,30 +736,46 @@
         }
 
         /**
-         * Toggles between login and signup forms.
-         * @param {string} view - 'login' or 'signup'.
+         * Toggles between login, phone verification, OTP, and signup forms.
+         * @param {string} view - 'login', 'phone-verify', 'otp', or 'signup'.
          */
         function toggleAuthView(view) {
-            if (view === 'login') {
-                loginForm.classList.remove('hidden');
-                signupForm.classList.add('hidden');
-                displayAuthMessage(loginMessage, '', false); // Clear messages
-                displayAuthMessage(signupMessage, '', false);
-            } else {
-                loginForm.classList.add('hidden');
-                signupForm.classList.remove('hidden');
-                displayAuthMessage(loginMessage, '', false); // Clear messages
-                displayAuthMessage(signupMessage, '', false);
+            loginForm.classList.add('hidden');
+            phoneVerifyForm.classList.add('hidden');
+            otpForm.classList.add('hidden');
+            signupForm.classList.add('hidden');
+
+            displayAuthMessage(loginMessage, '', false);
+            displayAuthMessage(phoneVerifyMessage, '', false);
+            displayAuthMessage(otpMessage, '', false);
+            displayAuthMessage(signupMessage, '', false);
+
+            switch (view) {
+                case 'login':
+                    loginForm.classList.remove('hidden');
+                    break;
+                case 'phone-verify':
+                    phoneVerifyForm.classList.remove('hidden');
+                    last4DigitsInput.value = ''; // Clear previous input
+                    break;
+                case 'otp':
+                    otpForm.classList.remove('hidden');
+                    otpInput.value = ''; // Clear previous input
+                    break;
+                case 'signup':
+                    signupForm.classList.remove('hidden');
+                    break;
             }
         }
 
         // Event listeners for toggling auth views
         showSignupBtn.addEventListener('click', () => toggleAuthView('signup'));
         showLoginBtn.addEventListener('click', () => toggleAuthView('login'));
+        backToLoginBtn.addEventListener('click', () => toggleAuthView('login'));
 
 
         /**
-         * Handles user login.
+         * Handles user login with email and password.
          */
         loginBtn.addEventListener('click', async () => {
             const email = loginEmailInput.value;
@@ -701,38 +787,143 @@
             }
 
             try {
+                // Set persistence before signing in
+                await setPersistence(auth, browserSessionPersistence);
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // Fetch user role and id from Realtime Database
+                // Fetch user data from Realtime Database
                 const userRef = ref(db, `users/${user.uid}`);
                 const snapshot = await get(userRef);
-                const userData = snapshot.val();
+                currentUserData = snapshot.val(); // Store user data globally
 
-                if (userData && userData.role === 'employee') {
-                    if (userData.id && userData.id.trim() !== "") {
-                        currentUserData = userData;
-                        authContainer.style.display = 'none';
-                        appScreen.style.display = 'flex';
-                        userDisplayName.textContent = `${userData.name} (${userData.email})`;
-                        checkUserLocationAndAttendance();
+                if (currentUserData && currentUserData.role === 'employee') {
+                    if (currentUserData.phone && currentUserData.phone.trim() !== "") {
+                        phoneNumberToVerify = currentUserData.phone;
+                        toggleAuthView('phone-verify'); // Proceed to phone verification
                     } else {
-                        // id is missing, show blocking modal and log out
-                        await signOut(auth);
-                        showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.', () => {
-                            displayAuthMessage(loginMessage, 'Login failed: Employee ID missing. Contact Admin.', true);
+                        // Phone number missing in DB
+                        await signOut(auth); // Log out immediately
+                        showModal('Phone Not Found', 'Your registered phone number is missing. Please contact Admin.', () => {
+                            toggleAuthView('login');
                         });
                     }
                 } else {
+                    // Not an employee or user data missing
                     await signOut(auth); // Log out non-employee users or users without data
-                    showModal('Access Denied', 'You do not have employee access to this application.');
-                    displayAuthMessage(loginMessage, 'Access denied. Only employees can log in.', true);
+                    showModal('Access Denied', 'You do not have employee access to this application.', () => {
+                        toggleAuthView('login');
+                    });
                 }
             } catch (error) {
                 console.error('Login error:', error);
                 displayAuthMessage(loginMessage, `Login failed: ${error.message}`, true);
             }
         });
+
+        /**
+         * Handles phone number last 4 digits verification.
+         */
+        verifyPhoneBtn.addEventListener('click', async () => {
+            const last4Digits = last4DigitsInput.value.trim();
+
+            if (last4Digits.length !== 4) {
+                displayAuthMessage(phoneVerifyMessage, 'Please enter exactly the last 4 digits.', true);
+                return;
+            }
+
+            // Check if the last 4 digits match the stored phone number
+            if (phoneNumberToVerify.slice(-4) === last4Digits) {
+                // Match, proceed to send OTP
+                displayAuthMessage(phoneVerifyMessage, '', false); // Clear message
+                toggleAuthView('otp');
+                await sendOtp();
+            } else {
+                displayAuthMessage(phoneVerifyMessage, 'Last 4 digits do not match. Please try again.', true);
+            }
+        });
+
+        /**
+         * Sends OTP to the registered phone number.
+         */
+        async function sendOtp() {
+            resendOtpBtn.disabled = true;
+            countdownTimer.textContent = `(${OTP_COOLDOWN_SECONDS}s)`;
+            let timeLeft = OTP_COOLDOWN_SECONDS;
+
+            otpCountdownInterval = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                countdownTimer.textContent = `(${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')})`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(otpCountdownInterval);
+                    resendOtpBtn.disabled = false;
+                    countdownTimer.textContent = '';
+                }
+            }, 1000);
+
+            try {
+                // Use the RecaptchaVerifier instance
+                confirmationResult = await signInWithPhoneNumber(auth, phoneNumberToVerify, window.recaptchaVerifier);
+                displayAuthMessage(otpMessage, 'OTP sent successfully!', false);
+            } catch (error) {
+                clearInterval(otpCountdownInterval); // Stop countdown on error
+                resendOtpBtn.disabled = false;
+                countdownTimer.textContent = '';
+                console.error('Error sending OTP:', error);
+                displayAuthMessage(otpMessage, `Error sending OTP: ${error.message}`, true);
+                // Reset reCAPTCHA if there's an error
+                if (window.recaptchaWidgetId !== undefined) {
+                    grecaptcha.reset(window.recaptchaWidgetId);
+                }
+                showModal('OTP Send Error', `Failed to send OTP: ${error.message}. Please try again.`);
+            }
+        }
+
+        /**
+         * Handles OTP verification.
+         */
+        verifyOtpBtn.addEventListener('click', async () => {
+            const otp = otpInput.value.trim();
+
+            if (otp.length !== 6) {
+                displayAuthMessage(otpMessage, 'Please enter the 6-digit OTP.', true);
+                return;
+            }
+
+            if (!confirmationResult) {
+                displayAuthMessage(otpMessage, 'No OTP has been sent. Please request a new OTP.', true);
+                return;
+            }
+
+            try {
+                await confirmationResult.confirm(otp);
+                // OTP verified, user is signed in
+                clearInterval(otpCountdownInterval); // Stop countdown
+                showModal('Login Successful', 'You have successfully logged in!', () => {
+                    authContainer.style.display = 'none';
+                    appScreen.style.display = 'flex';
+                    userDisplayName.textContent = `${currentUserData.name} (${currentUserData.email})`;
+                    checkUserLocationAndAttendance();
+                });
+            } catch (error) {
+                console.error('OTP verification error:', error);
+                displayAuthMessage(otpMessage, `OTP verification failed: ${error.message}`, true);
+                showModal('OTP Verification Failed', `The OTP you entered is incorrect or expired. Please try again or resend OTP.`);
+            }
+        });
+
+        /**
+         * Handles resending OTP.
+         */
+        resendOtpBtn.addEventListener('click', async () => {
+            if (!resendOtpBtn.disabled) {
+                await sendOtp();
+            }
+        });
+
 
         /**
          * Handles new employee signup.
@@ -860,6 +1051,12 @@
                     anLocked: false
                 };
                 currentUserData = null; // Clear current user data on logout
+                clearInterval(otpCountdownInterval); // Clear any active OTP countdown
+                countdownTimer.textContent = ''; // Clear countdown display
+                resendOtpBtn.disabled = false; // Enable resend button
+                if (window.recaptchaWidgetId !== undefined) {
+                    grecaptcha.reset(window.recaptchaWidgetId); // Reset reCAPTCHA
+                }
             } catch (error) {
                 console.error('Logout error:', error);
                 showModal('Logout Error', `Failed to log out: ${error.message}`);
@@ -960,7 +1157,7 @@
                 if (!branchLocation || typeof branchLocation.lat === 'undefined' || typeof branchLocation.lng === 'undefined' || typeof branchLocation.radius === 'undefined') {
                     showModal('Configuration Error', `Branch location data for "${currentUserData.branch}" is incomplete. Please contact admin.`);
                     locationMessageSpan.textContent = `❌ Location Error: Branch data incomplete for ${currentUserData.branch}.`;
-                    locationStatusDiv.classList.remove('bg-green-100', 'border-green-200');
+                    locationStatusDiv.classList.remove('bg-green-100', 'border-red-200');
                     locationStatusDiv.classList.add('bg-red-100', 'border-red-200');
                     return;
                 }
@@ -1224,11 +1421,12 @@
 
 
         // Initial authentication state check
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 // User is signed in, fetch role and proceed
                 const userRef = ref(db, `users/${user.uid}`);
-                get(userRef).then(snapshot => {
+                try {
+                    const snapshot = await get(userRef);
                     const userData = snapshot.val();
                     if (userData && userData.role === 'employee') {
                         if (userData.id && userData.id.trim() !== "") {
@@ -1239,25 +1437,28 @@
                             checkUserLocationAndAttendance();
                         } else {
                             // id is missing, show blocking modal and log out
-                            signOut(auth); // Log out immediately
+                            await signOut(auth); // Log out immediately
                             authContainer.style.display = 'flex'; // Show login screen
                             appScreen.style.display = 'none'; // Hide app screen
                             showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.');
+                            toggleAuthView('login'); // Ensure login form is shown
                         }
                     } else {
                         // Not an employee or user data missing, log out
-                        signOut(auth);
+                        await signOut(auth);
                         authContainer.style.display = 'flex';
                         appScreen.style.display = 'none';
                         showModal('Access Denied', 'You do not have employee access to this application.');
+                        toggleAuthView('login'); // Ensure login form is shown
                     }
-                }).catch(error => {
+                } catch (error) {
                     console.error("Error fetching user role:", error);
-                    signOut(auth); // Log out on error
+                    await signOut(auth); // Log out on error
                     authContainer.style.display = 'flex';
                     appScreen.style.display = 'none';
                     showModal('Error', 'Failed to retrieve user data. Please try again.');
-                });
+                    toggleAuthView('login'); // Ensure login form is shown
+                }
             } else {
                 // No user is signed in, show login screen
                 authContainer.style.display = 'flex';
@@ -1269,6 +1470,7 @@
         // Set up a timer to periodically update form disablement based on time
         setInterval(updateFormDisablementBasedOnTime, 60000); // Check every minute
     </script>
+    <script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit" async defer></script>
 </body>
 
 </html>
