@@ -760,19 +760,37 @@
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 user = userCredential.user;
 
-                // 2. Check if empId exists and get branch/subdivision from a lookup table
-                // Assuming a structure like: /employee_id_details/{empId}: { branch: "...", subdivision: "..." }
-                // This structure is more suitable for client-side lookup and securing read access.
-                // IMPORTANT: Ensure Firebase Security Rules for '/employee_id_details' allow read access
-                // to authenticated users for specific empIds, but only admin write access.
-                const empIdDetailsRef = ref(db, `employee_id_details/${empId}`);
-                const empIdSnapshot = await get(empIdDetailsRef);
-                const empIdData = empIdSnapshot.val();
+                // 2. Search entire branches tree to find where empId exists
+                let foundBranch = null;
+                let foundSubdivision = null;
 
-                if (empIdData && empIdData.branch && empIdData.subdivision) {
+                const branchesRef = ref(db, 'branches');
+                const branchesSnapshot = await get(branchesRef);
+                const branchesData = branchesSnapshot.val();
+
+                if (branchesData) {
+                    for (const branchName in branchesData) {
+                        const branch = branchesData[branchName];
+                        if (branch.subdivisions) {
+                            for (const subdivisionName in branch.subdivisions) {
+                                const subdivision = branch.subdivisions[subdivisionName];
+                                if (subdivision.employees && subdivision.employees[empId]) {
+                                    foundBranch = branchName;
+                                    foundSubdivision = subdivisionName;
+                                    break; // Employee ID found, exit inner loop
+                                }
+                            }
+                        }
+                        if (foundBranch) {
+                            break; // Employee ID found, exit outer loop
+                        }
+                    }
+                }
+
+                if (foundBranch && foundSubdivision) {
                     // empId found, extract branch and subdivision
-                    const branch = empIdData.branch;
-                    const subdivision = empIdData.subdivision;
+                    const branch = foundBranch;
+                    const subdivision = foundSubdivision;
 
                     // 3. Save user node in Realtime Database with extracted branch and subdivision
                     const userRef = ref(db, `users/${user.uid}`);
@@ -796,7 +814,7 @@
                     });
                     displayAuthMessage(signupMessage, 'Signup successful!', false);
                 } else {
-                    // empId not found in lookup table
+                    // empId not found under any branch/subdivision
                     if (user) {
                         await deleteUser(user); // Delete the newly created Firebase Auth account
                     }
