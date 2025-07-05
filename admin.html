@@ -205,9 +205,7 @@
                 const userNameEl = document.getElementById('user-name');
                 const branchInfoEl = document.getElementById('branch-info');
                 const logoutBtn = document.getElementById('logout-btn'); // Get logout button
-                const logsBtn = document.getElementById('logs-btn'); // Get logs button
-
-                const activityLogs = document.getElementById("activity-logs");
+                const activityLogsBtn = document.getElementById('activity-logs-btn'); // Get the new Activity Logs button
 
                 // Logout button logic
                 if (logoutBtn) {
@@ -226,13 +224,10 @@
                     });
                 }
 
-                // Logs button logic
-                if (logsBtn && activityLogs) {
-                    logsBtn.addEventListener("click", () => {
-                        activityLogs.classList.toggle("hidden");
-                        if (!activityLogs.classList.contains("hidden")) {
-                            activityLogs.scrollIntoView({ behavior: "smooth" });
-                        }
+                // Activity Logs button logic
+                if (activityLogsBtn) {
+                    activityLogsBtn.addEventListener('click', () => {
+                        window.open('activitylogs.html', '_blank'); // Open in new tab
                     });
                 }
 
@@ -273,6 +268,15 @@
                             editTabButton.classList.remove('hidden'); // Ensure button is visible for authorized users
                         }
 
+                        // Show/hide Activity Logs button based on role
+                        if (activityLogsBtn) {
+                            if (currentUserRole === 'Admin' || currentUserRole === 'Dev') {
+                                activityLogsBtn.style.display = 'block'; // Show the button
+                            } else {
+                                activityLogsBtn.style.display = 'none'; // Hide the button
+                            }
+                        }
+
                         // Declare activity log elements here
                         const logFromDateInput = document.getElementById("log-from-date");
                         const logToDateInput = document.getElementById("log-to-date");
@@ -287,6 +291,7 @@
                         console.error("Error fetching user role:", error);
                         currentUserRole = 'user'; // Default to user if error
                         editTabButton.classList.add('hidden'); // Hide on error
+                        if (activityLogsBtn) activityLogsBtn.style.display = 'none'; // Hide on error
                     }
 
                     // Helper to format time (handles "HH:MM:SS am/pm" or "HH:MM:SS")
@@ -354,9 +359,9 @@
                                 const subsObj = snap.val() || {};
                                 Object.keys(subsObj).forEach(subKey => {
                                     const label = subKey.charAt(0).toUpperCase() + subKey.slice(1);
-                                    recordSubdivisionDropdown.innerHTML += `<option value="${subKey}">${label}</option>`;
+                                    subdivisionDropdown.innerHTML += `<option value="${subKey}">${label}</option>`;
                                 });
-                                recordSubdivisionDropdown.disabled = false;
+                                subdivisionDropdown.disabled = false;
                             })
                             .catch(err => console.error("Error loading subdivisions for record tab:", err));
                     });
@@ -2739,13 +2744,10 @@
                     <p class="text-lg font-semibold text-gray-800">Summary:</p>
                     <ul class="list-disc list-inside ml-4">
                         <li>Total Full Days: <span id="records-full-days" class="font-bold text-green-600">0</span></li>
-                        <li>Total Half Days: <span id="records-half-days" class="font-bold text-orange-600">0</span>
-                        </li>
-                        <li>Total Absent Days: <span id="records-absent-days" class="font-bold text-red-600">0</span>
-                        </li>
+                        <li>Total Half Days: <span id="records-half-days" class="font-bold text-orange-600">0</span></li>
+                        <li>Total Absent Days: <span id="records-absent-days" class="font-bold text-red-600">0</span></li>
                         <li>Total Late Days: <span id="records-late-days" class="font-bold text-red-600">0</span></li>
-                        <li>Total Leave Taken: <span id="records-total-leave-count" class="font-bold text-blue-600">0
-                                Days</span></li>
+                        <li>Total Leave Taken: <span id="records-total-leave-count" class="font-bold text-blue-600">0 Days</span></li>
                     </ul>
                 </div>
 
