@@ -470,7 +470,7 @@
     </div>
 
     <script type="module">
-        // Firebase Modular SDK v10+ imports
+ // Firebase Modular SDK v10+ imports
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
         import { getDatabase, ref, get, set, update } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js';
@@ -558,11 +558,16 @@
          * Displays a custom modal message.
          * @param {string} title - The title of the modal.
          * @param {string} message - The message content.
+         * @param {function} onOk - Optional callback for OK button.
          */
-        function showModal(title, message) {
+        function showModal(title, message, onOk = null) {
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             messageModal.style.display = 'flex'; // Use flex to center
+            modalOkBtn.onclick = () => {
+                hideModal();
+                if (onOk) onOk();
+            };
         }
 
         /**
@@ -574,7 +579,7 @@
 
         // Modal event listeners
         closeModalBtn.addEventListener('click', hideModal);
-        modalOkBtn.addEventListener('click', hideModal);
+        // modalOkBtn.addEventListener('click', hideModal); // This is now set dynamically in showModal
         window.addEventListener('click', (event) => {
             if (event.target === messageModal) {
                 hideModal();
@@ -622,19 +627,27 @@
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // Fetch user role from Realtime Database
+                // Fetch user role and empId from Realtime Database
                 const userRef = ref(db, `users/${user.uid}`);
                 const snapshot = await get(userRef);
                 const userData = snapshot.val();
 
                 if (userData && userData.role === 'employee') {
-                    currentUserData = userData;
-                    loginScreen.style.display = 'none';
-                    appScreen.style.display = 'flex';
-                    userDisplayName.textContent = `${userData.name} (${userData.email})`;
-                    checkUserLocationAndAttendance();
+                    if (userData.empId && userData.empId.trim() !== "") {
+                        currentUserData = userData;
+                        loginScreen.style.display = 'none';
+                        appScreen.style.display = 'flex';
+                        userDisplayName.textContent = `${userData.name} (${userData.email})`;
+                        checkUserLocationAndAttendance();
+                    } else {
+                        // empId is missing, show blocking modal and log out
+                        await signOut(auth);
+                        showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.', () => {
+                            displayLoginMessage('Login failed: Employee ID missing. Contact Admin.', true);
+                        });
+                    }
                 } else {
-                    await signOut(auth); // Log out non-employee users
+                    await signOut(auth); // Log out non-employee users or users without data
                     showModal('Access Denied', 'You do not have employee access to this application.');
                     displayLoginMessage('Access denied. Only employees can log in.', true);
                 }
@@ -672,6 +685,7 @@
                     morningLocked: false,
                     anLocked: false
                 };
+                currentUserData = null; // Clear current user data on logout
             } catch (error) {
                 console.error('Logout error:', error);
                 showModal('Logout Error', `Failed to log out: ${error.message}`);
@@ -733,12 +747,22 @@
             submitAttendanceBtn.disabled = true;
             attendanceSection.style.display = 'none';
 
+            if (!currentUserData || !currentUserData.empId || currentUserData.empId.trim() === "") {
+                showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance cannot be marked.', () => {
+                    // Optionally log out or disable more features if empId is critical
+                    submitAttendanceBtn.disabled = true;
+                    attendanceSection.style.display = 'none';
+                });
+                locationMessageSpan.textContent = 'Error: Employee ID missing.';
+                return;
+            }
+
             try {
                 userLocation = await getUserLocation();
                 userCoordsSpan.textContent = `${userLocation.latitude.toFixed(6)}, ${userLocation.longitude.toFixed(6)}`;
 
-                if (!currentUserData || !currentUserData.branch) {
-                    showModal('Error', 'User branch information is missing.');
+                if (!currentUserData.branch) {
+                    showModal('Error', 'User branch information is missing. Please contact Admin.');
                     locationMessageSpan.textContent = 'Error: Missing branch info.';
                     return;
                 }
@@ -790,7 +814,8 @@
          */
         async function loadTodaysAttendance() {
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            const attendancePath = `attendance/${today}/${currentUserData.branch}/${currentUserData.subdivision || 'default'}/${auth.currentUser.uid}`;
+            const employeeID = currentUserData.empId; // Use empId for attendance path
+            const attendancePath = `attendance/${today}/${currentUserData.branch}/${currentUserData.subdivision || 'default'}/${employeeID}`;
             const attendanceRef = ref(db, attendancePath);
 
             try {
@@ -902,8 +927,8 @@
                     leaveValue = isBefore3PM ? 0.5 : 0;
                 } else if (afternoonStatus === 'None') {
                     if (isAfter7PM) {
-                        statusType = 'half';
-                        leaveValue = 0.5;
+                        statusType = 'full'; // If morning checked and no afternoon action by 7 PM, it's considered full day
+                        leaveValue = 0;
                     } else {
                         statusType = 'pending'; // Still waiting for AN action
                     }
@@ -934,61 +959,67 @@
         /**
          * Handles the submission of attendance data.
          */
-submitAttendanceBtn.addEventListener('click', async () => {
-    const { statusType, leaveValue } = calculateAttendanceStatus();
+        submitAttendanceBtn.addEventListener('click', async () => {
+            if (!currentUserData || !currentUserData.empId || currentUserData.empId.trim() === "") {
+                showModal('Submission Error', 'Your employee ID is missing. Attendance cannot be submitted. Please contact Admin.');
+                return;
+            }
 
-    if (statusType === 'invalid') {
-        showModal('Invalid Attendance', 'The selected attendance combination is invalid. Please review your entries.');
-        return;
-    }
+            const { statusType, leaveValue } = calculateAttendanceStatus();
 
-    showModal('Confirm Attendance', 'Are you sure you want to submit your attendance for today?');
-    modalOkBtn.onclick = async () => {
-        hideModal();
+            if (statusType === 'invalid') {
+                showModal('Invalid Attendance', 'The selected attendance combination is invalid. Please review your entries.');
+                return;
+            }
 
-        const now = new Date();
-        const today = now.toISOString().split('T')[0];
-        const timestamp = now.toISOString();
+            showModal('Confirm Attendance', 'Are you sure you want to submit your attendance for today?');
+            modalOkBtn.onclick = async () => {
+                hideModal();
 
-        const uid = auth.currentUser.uid;
-        const branch = currentUserData.branch;
-        const subdivision = currentUserData.subdivision || 'default';
+                const now = new Date();
+                const today = now.toISOString().split('T')[0];
+                const timestamp = now.toISOString();
 
-        const employeeID = currentUserData.empId || uid;
+                const uid = auth.currentUser.uid;
+                const branch = currentUserData.branch;
+                const subdivision = currentUserData.subdivision || 'default';
+                const employeeID = currentUserData.empId; // Use empId, it's already validated
 
-        const attendanceDataToSave = {
-            name: currentUserData.name,
-            uid: uid,
-            morning: morningCheck.checked,
-            afternoon: document.querySelector('input[name="afternoon-status"]:checked').value,
-            late: attendanceRecord.late,
-            leave: leaveValue,
-            timestamp: timestamp,
-            morningLocked: true,
-            anLocked: true
-        };
+                const attendanceDataToSave = {
+                    name: currentUserData.name,
+                    uid: uid, // Keep UID for potential linking, but empId is primary key
+                    morning: morningCheck.checked,
+                    afternoon: document.querySelector('input[name="afternoon-status"]:checked').value,
+                    late: attendanceRecord.late,
+                    leave: leaveValue,
+                    timestamp: timestamp,
+                    morningLocked: true, // Lock upon submission
+                    anLocked: true       // Lock upon submission
+                };
 
-        const attendancePath = `attendance/${today}/${branch}/${subdivision}/${employeeID}`;
-        const leaveLogPath = `leavelogs/${employeeID}/${today}`; // ✅ fixed here
+                const attendancePath = `attendance/${today}/${branch}/${subdivision}/${employeeID}`;
+                const leaveLogPath = `leavelogs/${employeeID}/${today}`;
 
-        try {
-            await set(ref(db, attendancePath), attendanceDataToSave);
-            await set(ref(db, leaveLogPath), leaveValue);
+                try {
+                    await set(ref(db, attendancePath), attendanceDataToSave);
+                    await set(ref(db, leaveLogPath), leaveValue); // Save leave value directly
 
-            displayAttendanceMessage('✅ Attendance & leave saved successfully!', false);
+                    displayAttendanceMessage('✅ Attendance & leave saved successfully!', false);
 
-            attendanceRecord = { ...attendanceDataToSave };
-            morningCheck.disabled = true;
-            anEnters.disabled = true;
-            anLeaves.disabled = true;
-            anNone.disabled = true;
-            submitAttendanceBtn.disabled = true;
-        } catch (error) {
-            console.error('Error saving attendance or leave logs:', error);
-            showModal('Save Error', `Failed to save: ${error.message}`);
-        }
-    };
-});
+                    // Update local attendance record and disable form elements after successful save
+                    attendanceRecord = { ...attendanceDataToSave };
+                    morningCheck.disabled = true;
+                    anEnters.disabled = true;
+                    anLeaves.disabled = true;
+                    anNone.disabled = true;
+                    submitAttendanceBtn.disabled = true;
+
+                } catch (error) {
+                    console.error('Error saving attendance or leave logs:', error);
+                    showModal('Save Error', `Failed to save: ${error.message}`);
+                }
+            };
+        });
 
 
         /**
@@ -1013,11 +1044,19 @@ submitAttendanceBtn.addEventListener('click', async () => {
                 get(userRef).then(snapshot => {
                     const userData = snapshot.val();
                     if (userData && userData.role === 'employee') {
-                        currentUserData = userData;
-                        loginScreen.style.display = 'none';
-                        appScreen.style.display = 'flex';
-                        userDisplayName.textContent = `${userData.name} (${userData.email})`;
-                        checkUserLocationAndAttendance();
+                        if (userData.empId && userData.empId.trim() !== "") {
+                            currentUserData = userData;
+                            loginScreen.style.display = 'none';
+                            appScreen.style.display = 'flex';
+                            userDisplayName.textContent = `${userData.name} (${userData.email})`;
+                            checkUserLocationAndAttendance();
+                        } else {
+                            // empId is missing, show blocking modal and log out
+                            signOut(auth); // Log out immediately
+                            loginScreen.style.display = 'flex'; // Show login screen
+                            appScreen.style.display = 'none'; // Hide app screen
+                            showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.');
+                        }
                     } else {
                         // Not an employee or user data missing, log out
                         signOut(auth);
