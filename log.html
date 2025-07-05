@@ -9,6 +9,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        html {
+            /* Always show a vertical scrollbar to prevent layout shifts when content overflows */
+            overflow-y: scroll; 
+        }
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f0f2f5;
@@ -812,6 +816,15 @@
                 currentUserData = snapshot.val(); // Store user data globally
 
                 if (currentUserData && currentUserData.role === 'employee') {
+                    if (currentUserData.id && currentUserData.id.trim() === "") {
+                        // Employee ID is missing, log out
+                        await signOut(auth); // Log out immediately
+                        showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.', () => {
+                            toggleAuthView('login');
+                        });
+                        return; // Stop further execution
+                    }
+
                     if (currentUserData.phone && currentUserData.phone.trim() !== "") {
                         phoneNumberToVerify = currentUserData.phone;
                         // Successfully logged in with email/password, proceed to phone verification
