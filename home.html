@@ -459,17 +459,17 @@
     </div>
     <script>
         // ✅ Firebase Configuration and Initialization
- // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBU3K7gRzqiqQt3o9thoEpd06ReLGVmm_w",
-  authDomain: "diya-hero.firebaseapp.com",
-  projectId: "diya-hero",
-      databaseURL: "https://diya-hero-default-rtdb.asia-southeast1.firebasedatabase.app", 
-  storageBucket: "diya-hero.firebasestorage.app",
-  messagingSenderId: "455829653263",
-  appId: "1:455829653263:web:5a31c65bdab2b9cee0607a",
-  measurementId: "G-DZYHPLQD3F"
-};
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyBU3K7gRzqiqQt3o9thoEpd06ReLGVmm_w",
+            authDomain: "diya-hero.firebaseapp.com",
+            databaseURL: "https://diya-hero-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "diya-hero",
+            storageBucket: "diya-hero.firebasestorage.app",
+            messagingSenderId: "455829653263",
+            appId: "1:455829653263:web:5a31c65bdab2b9cee0607a",
+            measurementId: "G-DZYHPLQD3F"
+        };
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
@@ -531,23 +531,34 @@ const firebaseConfig = {
             const morning = data.morning;
             const an = data.afternoon || 'None';
 
-            if (morning && an === 'Leaves') {
-                return { type: 'half', text: `Half Day${data.late ? ' (Late)' : ''}` };
+            // Use saved AN time if available, otherwise current time
+            const anHour = data.anTime ? parseInt(data.anTime.split(':')[0]) : h;
+            const anMin = data.anTime ? parseInt(data.anTime.split(':')[1]) : m;
+            const anAfter3 = anHour > 15 || (anHour === 15 && anMin >= 0);
+
+            if (morning) {
+                if (an === 'Leaves') {
+                    return anAfter3
+                        ? { type: 'full', text: `Full Day${data.late ? ' (Late)' : ''}` }
+                        : { type: 'half', text: `Half Day${data.late ? ' (Late)' : ''}` };
+                }
+                if (an === 'None') {
+                    return after3PM
+                        ? { type: 'half', text: `Half Day${data.late ? ' (Late)' : ''}` }
+                        : { type: 'pending', text: 'Pending' };
+                }
+            } else {
+                if (an === 'Enters') {
+                    return { type: 'half', text: 'Half Day' };
+                }
+                if (an === 'None') {
+                    return after3PM
+                        ? { type: 'absent', text: 'Absent' }
+                        : { type: 'pending', text: 'Pending' };
+                }
             }
-            if (morning && (an === 'None' || an === '')) {
-                return after3PM
-                    ? { type: 'full', text: `Full Day${data.late ? ' (Late)' : ''}` }
-                    : { type: 'pending', text: 'Pending' };
-            }
-            if (!morning && an === 'Enters') {
-                return { type: 'half', text: 'Half Day' };
-            }
-            if (!morning && (an === 'None' || an === '')) {
-                return after3PM
-                    ? { type: 'absent', text: 'Absent' }
-                    : { type: 'pending', text: 'Pending' };
-            }
-            return { type: 'pending', text: 'Pending' }; // Default fallback
+
+            return { type: 'pending', text: 'Pending' }; // fallback
         }
 
         // ✅ Summary Section Count Update
@@ -593,7 +604,9 @@ const firebaseConfig = {
                 morningCheckbox.id = `morning-check-${emp.id}`; // Unique ID
                 morningCheckbox.checked = data.morning;
                 // Disable if already locked or after 12 PM
-                morningCheckbox.disabled = data.morningLocked || after12PM;
+                const isDevOrAdmin = userRole === 'Dev' || userRole === 'Admin';
+                morningCheckbox.disabled = !isDevOrAdmin && (data.morningLocked || after12PM);
+
 
                 morningCheckbox.addEventListener('change', () => {
                     data.morning = morningCheckbox.checked;
@@ -623,28 +636,33 @@ const firebaseConfig = {
 
                     // ✅ Disable only if explicitly locked (saved)
                     const isLocked = data.anLocked === true;
+                    const isDevOrAdmin = userRole === 'Dev' || userRole === 'Admin';
 
-                    if (isLocked) {
+                    if (!isDevOrAdmin && isLocked) {
                         radio.disabled = true;
-                    } else {
+                    }
+                    else {
                         // ⏱ Time-based rules apply only if not locked
-                        if (!after12PM) {
+                        if (!isDevOrAdmin && !after12PM) {
                             radio.disabled = true;
                             radio.addEventListener('click', () => {
                                 alert("Afternoon attendance can be marked only after 12 PM.");
                             });
-                        } else {
-                            if (data.morning && status === 'Enters') {
+                        }
+                        else {
+                            if (!isDevOrAdmin && data.morning && status === 'Enters') {
                                 radio.disabled = true;
                                 radio.addEventListener('click', () => {
                                     alert("Already present since morning. AN Joining not applicable.");
                                 });
-                            } else if (!data.morning && status === 'Leaves') {
+                            }
+                            else if (!isDevOrAdmin && !data.morning && status === 'Leaves') {
                                 radio.disabled = true;
                                 radio.addEventListener('click', () => {
                                     alert("No Morning attendance. AN Leaving not allowed.");
                                 });
                             }
+
                         }
                     }
 
@@ -986,12 +1004,13 @@ const firebaseConfig = {
                 // 0 = Full day present (Morning + No AN Leave)
                 // 0.5 = Half day present (Morning + AN Leaves OR No Morning + AN Enters)
                 // 1 = Absent (No Morning + No AN Enters/Leaves after 3PM or if manually marked)
-                let leaveValue = 0; // Default to full presence
+                let leaveValue = 0;
                 if (status.type === 'half') {
                     leaveValue = 0.5;
                 } else if (status.type === 'absent') {
                     leaveValue = 1;
                 }
+
 
 
                 // Save payload
