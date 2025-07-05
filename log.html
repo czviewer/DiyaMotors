@@ -627,20 +627,20 @@
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // Fetch user role and empId from Realtime Database
+                // Fetch user role and empid from Realtime Database
                 const userRef = ref(db, `users/${user.uid}`);
                 const snapshot = await get(userRef);
                 const userData = snapshot.val();
 
                 if (userData && userData.role === 'employee') {
-                    if (userData.empId && userData.empId.trim() !== "") {
+                    if (userData.empid && userData.empid.trim() !== "") {
                         currentUserData = userData;
                         loginScreen.style.display = 'none';
                         appScreen.style.display = 'flex';
                         userDisplayName.textContent = `${userData.name} (${userData.email})`;
                         checkUserLocationAndAttendance();
                     } else {
-                        // empId is missing, show blocking modal and log out
+                        // empid is missing, show blocking modal and log out
                         await signOut(auth);
                         showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance will not be recorded.', () => {
                             displayLoginMessage('Login failed: Employee ID missing. Contact Admin.', true);
@@ -747,9 +747,9 @@
             submitAttendanceBtn.disabled = true;
             attendanceSection.style.display = 'none';
 
-            if (!currentUserData || !currentUserData.empId || currentUserData.empId.trim() === "") {
+            if (!currentUserData || !currentUserData.empid || currentUserData.empid.trim() === "") {
                 showModal('Employee ID Missing', 'Your employee ID is missing. Please contact Admin. Attendance cannot be marked.', () => {
-                    // Optionally log out or disable more features if empId is critical
+                    // Optionally log out or disable more features if empid is critical
                     submitAttendanceBtn.disabled = true;
                     attendanceSection.style.display = 'none';
                 });
@@ -814,7 +814,7 @@
          */
         async function loadTodaysAttendance() {
             const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            const employeeID = currentUserData.empId; // Use empId for attendance path
+            const employeeID = currentUserData.empid; // Use empid for attendance path
             const attendancePath = `attendance/${today}/${currentUserData.branch}/${currentUserData.subdivision || 'default'}/${employeeID}`;
             const attendanceRef = ref(db, attendancePath);
 
@@ -960,7 +960,7 @@
          * Handles the submission of attendance data.
          */
         submitAttendanceBtn.addEventListener('click', async () => {
-            if (!currentUserData || !currentUserData.empId || currentUserData.empId.trim() === "") {
+            if (!currentUserData || !currentUserData.empid || currentUserData.empid.trim() === "") {
                 showModal('Submission Error', 'Your employee ID is missing. Attendance cannot be submitted. Please contact Admin.');
                 return;
             }
@@ -983,11 +983,11 @@
                 const uid = auth.currentUser.uid;
                 const branch = currentUserData.branch;
                 const subdivision = currentUserData.subdivision || 'default';
-                const employeeID = currentUserData.empId; // Use empId, it's already validated
+                const employeeID = currentUserData.empid; // Use empid, it's already validated
 
                 const attendanceDataToSave = {
                     name: currentUserData.name,
-                    uid: uid, // Keep UID for potential linking, but empId is primary key
+                    uid: uid, // Keep UID for potential linking, but empid is primary key
                     morning: morningCheck.checked,
                     afternoon: document.querySelector('input[name="afternoon-status"]:checked').value,
                     late: attendanceRecord.late,
@@ -1044,14 +1044,14 @@
                 get(userRef).then(snapshot => {
                     const userData = snapshot.val();
                     if (userData && userData.role === 'employee') {
-                        if (userData.empId && userData.empId.trim() !== "") {
+                        if (userData.empid && userData.empid.trim() !== "") {
                             currentUserData = userData;
                             loginScreen.style.display = 'none';
                             appScreen.style.display = 'flex';
                             userDisplayName.textContent = `${userData.name} (${userData.email})`;
                             checkUserLocationAndAttendance();
                         } else {
-                            // empId is missing, show blocking modal and log out
+                            // empid is missing, show blocking modal and log out
                             signOut(auth); // Log out immediately
                             loginScreen.style.display = 'flex'; // Show login screen
                             appScreen.style.display = 'none'; // Hide app screen
