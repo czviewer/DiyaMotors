@@ -348,6 +348,7 @@
 
         /* Responsive adjustments */
         @media (max-width: 600px) {
+
             .container,
             .app-container {
                 padding: 20px;
@@ -474,7 +475,7 @@
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
         import { getDatabase, ref, get, set, update } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js';
 
-         const firebaseConfig = {
+        const firebaseConfig = {
             apiKey: "AIzaSyBU3K7gRzqiqQt3o9thoEpd06ReLGVmm_w",
             authDomain: "diya-hero.firebaseapp.com",
             databaseURL: "https://diya-hero-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -697,10 +698,10 @@
                     (error) => {
                         reject(new Error(`Geolocation error: ${error.message}`));
                     }, {
-                        enableHighAccuracy: true,
-                        timeout: 60000,
-                        maximumAge: 0
-                    }
+                    enableHighAccuracy: true,
+                    timeout: 60000,
+                    maximumAge: 0
+                }
                 );
             });
         }
@@ -933,65 +934,66 @@
         /**
          * Handles the submission of attendance data.
          */
-submitAttendanceBtn.addEventListener('click', async () => {
-    const { statusType, leaveValue } = calculateAttendanceStatus();
+        submitAttendanceBtn.addEventListener('click', async () => {
+            const { statusType, leaveValue } = calculateAttendanceStatus();
 
-    if (statusType === 'invalid') {
-        showModal('Invalid Attendance', 'The selected attendance combination is invalid. Please review your entries.');
-        return;
-    }
+            if (statusType === 'invalid') {
+                showModal('Invalid Attendance', 'The selected attendance combination is invalid. Please review your entries.');
+                return;
+            }
 
-    // Confirm before saving
-    showModal('Confirm Attendance', 'Are you sure you want to submit your attendance for today?');
-    modalOkBtn.onclick = async () => {
-        hideModal();
+            // Confirm before saving
+            showModal('Confirm Attendance', 'Are you sure you want to submit your attendance for today?');
+            modalOkBtn.onclick = async () => {
+                hideModal();
 
-        const now = new Date();
-        const today = now.toISOString().split('T')[0];
-        const timestamp = now.toISOString();
+                const now = new Date();
+                const today = now.toISOString().split('T')[0];
+                const timestamp = now.toISOString();
 
-        const uid = auth.currentUser.uid;
-        const branch = currentUserData.branch;
-        const subdivision = currentUserData.subdivision || 'default';
+                const uid = auth.currentUser.uid;
+                const branch = currentUserData.branch;
+                const subdivision = currentUserData.subdivision || 'default';
 
-        const attendanceDataToSave = {
-            name: currentUserData.name,
-            uid: uid,
-            morning: morningCheck.checked,
-            afternoon: document.querySelector('input[name="afternoon-status"]:checked').value,
-            late: attendanceRecord.late,
-            leave: leaveValue,
-            timestamp: timestamp,
-            morningLocked: true,
-            anLocked: true
-        };
+                const attendanceDataToSave = {
+                    name: currentUserData.name,
+                    uid: uid,
+                    morning: morningCheck.checked,
+                    afternoon: document.querySelector('input[name="afternoon-status"]:checked').value,
+                    late: attendanceRecord.late,
+                    leave: leaveValue,
+                    timestamp: timestamp,
+                    morningLocked: true,
+                    anLocked: true
+                };
 
-        const attendancePath = `attendance/${today}/${branch}/${subdivision}/${uid}`;
-        const leaveLogPath = `leavelogs/${uid}/${today}`;
+                const employeeID = currentUserData.empId || uid; // fallback to uid only if empId missing
+                const attendancePath = `attendance/${today}/${branch}/${subdivision}/${employeeID}`;
+                const leaveLogPath = `leavelogs/${uid}/${today}`;
 
-        try {
-            // Save attendance
-            await set(ref(db, attendancePath), attendanceDataToSave);
+                try {
+                    // Save attendance
+                    await set(ref(db, attendancePath), attendanceDataToSave);
 
-            // Save leave to leavelogs
-            await set(ref(db, leaveLogPath), leaveValue);
+                    // Save leave to leavelogs
+                    await set(ref(db, leaveLogPath), leaveValue);
 
-            displayAttendanceMessage('✅ Attendance & leave saved successfully!', false);
+                    displayAttendanceMessage('✅ Attendance & leave saved successfully!', false);
 
-            // Lock inputs after saving
-            attendanceRecord = { ...attendanceDataToSave };
-            morningCheck.disabled = true;
-            anEnters.disabled = true;
-            anLeaves.disabled = true;
-            anNone.disabled = true;
-            submitAttendanceBtn.disabled = true;
+                    // Lock inputs after saving
+                    attendanceRecord = { ...attendanceDataToSave };
+                    morningCheck.disabled = true;
+                    anEnters.disabled = true;
+                    anLeaves.disabled = true;
+                    anNone.disabled = true;
+                    submitAttendanceBtn.disabled = true;
 
-        } catch (error) {
-            console.error('Error saving attendance or leave logs:', error);
-            showModal('Save Error', `Failed to save: ${error.message}`);
-        }
-    };
-});
+                } catch (error) {
+                    console.error('Error saving attendance or leave logs:', error);
+                    showModal('Save Error', `Failed to save: ${error.message}`);
+                }
+            };
+        });
 
 
         /**
