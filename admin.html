@@ -1966,6 +1966,19 @@
         const addSubdivisionNameInput = document.getElementById('add-subdivision-name');
         const addSubdivisionBtn = document.getElementById('add-subdivision-btn');
 
+        // New elements for editing branches and subdivisions
+        const editBranchDropdown = document.getElementById('edit-branch-dropdown');
+        const editBranchNameInputContainer = document.getElementById('edit-branch-name-input-container');
+        const editBranchNameInput = document.getElementById('edit-branch-name-input');
+        const saveBranchNameBtn = document.getElementById('save-branch-name-btn');
+
+        const editSubdivisionBranchDropdown = document.getElementById('edit-subdivision-branch-dropdown');
+        const editSubdivisionDropdown = document.getElementById('edit-subdivision-dropdown');
+        const editSubdivisionNameInputContainer = document.getElementById('edit-subdivision-name-input-container');
+        const editSubdivisionNameInput = document.getElementById('edit-subdivision-name-input');
+        const saveSubdivisionNameBtn = document.getElementById('save-subdivision-name-btn');
+
+
         const branchesListContainer = document.getElementById('branches-list-container');
 
         /**
@@ -1973,6 +1986,11 @@
          */
         async function populateBranchesAndSubdivisions() {
             addSubdivisionBranchDropdown.innerHTML = `<option value="">Select Branch</option>`;
+            editBranchDropdown.innerHTML = `<option value="">Select Branch to Edit</option>`; // Populate for edit branch
+            editSubdivisionBranchDropdown.innerHTML = `<option value="">Select Branch</option>`; // Populate for edit subdivision
+            editSubdivisionDropdown.innerHTML = `<option value="">Select Subdivision to Edit</option>`;
+            editSubdivisionDropdown.disabled = true; // Disable until branch is selected
+
             branchesListContainer.innerHTML = '<p class="text-gray-500 text-center py-4">Loading branches...</p>';
 
             try {
@@ -1986,9 +2004,12 @@
 
                 let branchesHtml = '';
                 Object.entries(branchesData).forEach(([branchName, branchDetails]) => {
-                    // Populate dropdown for adding subdivisions
+                    // Populate dropdowns for adding and editing
                     const branchLabel = branchName.charAt(0).toUpperCase() + branchName.slice(1);
                     addSubdivisionBranchDropdown.innerHTML += `<option value="${branchName}">${branchLabel}</option>`;
+                    editBranchDropdown.innerHTML += `<option value="${branchName}">${branchLabel}</option>`;
+                    editSubdivisionBranchDropdown.innerHTML += `<option value="${branchName}">${branchLabel}</option>`;
+
 
                     // Build HTML for branches list
                     branchesHtml += `
@@ -2222,6 +2243,283 @@
                 }
             }, true); // Pass true for isError to make it a warning modal
         }
+
+        // --- Edit Branch Name Logic ---
+        editBranchDropdown.addEventListener('change', () => {
+            const selectedBranch = editBranchDropdown.value;
+            if (selectedBranch) {
+                editBranchNameInput.value = selectedBranch.charAt(0).toUpperCase() + selectedBranch.slice(1);
+                editBranchNameInputContainer.classList.remove('hidden');
+            } else {
+                editBranchNameInput.value = '';
+                editBranchNameInputContainer.classList.add('hidden');
+            }
+        });
+
+        saveBranchNameBtn.addEventListener('click', async () => {
+            if (currentUserRole !== 'Admin' && currentUserRole !== 'Dev') {
+                showModal("Access Denied: You do not have permission to edit branches.", null, true);
+                return;
+            }
+
+            const oldBranchName = editBranchDropdown.value;
+            const newBranchName = editBranchNameInput.value.trim().toLowerCase();
+
+            if (!oldBranchName) {
+                showModal("Please select a branch to edit.", null, true);
+                return;
+            }
+            if (!newBranchName) {
+                showModal("New branch name cannot be empty.", null, true);
+                return;
+            }
+            if (oldBranchName === newBranchName) {
+                showModal("New branch name is the same as the old name.", null, true);
+                return;
+            }
+
+            showModal(`Are you sure you want to rename branch "${oldBranchName}" to "${newBranchName}"? This will update all associated records.`, async (confirm) => {
+                if (!confirm) return;
+
+                showLoadingModal(`Renaming branch "${oldBranchName}" to "${newBranchName}"...`);
+                try {
+                    // Check if new branch name already exists
+                    const newBranchRef = ref(db, `branches/${newBranchName}`);
+                    const newBranchSnap = await get(newBranchRef);
+                    if (newBranchSnap.exists()) {
+                        hideLoadingModal();
+                        showModal(`Branch "${newBranchName}" already exists. Please choose a different name.`, null, true);
+                        return;
+                    }
+
+                    // Get old branch data
+                    const oldBranchRef = ref(db, `branches/${oldBranchName}`);
+                    const oldBranchSnap = await get(oldBranchRef);
+                    const branchData = oldBranchSnap.val();
+
+                    if (!branchData) {
+                        hideLoadingModal();
+                        showModal(`Branch "${oldBranchName}" not found.`, null, true);
+                        return;
+                    }
+
+                    // 1. Copy data to new branch name
+                    await set(newBranchRef, branchData);
+
+                    // 2. Delete old branch entry
+                    await remove(oldBranchRef);
+
+                    // 3. Update user references in 'users' node
+                    const usersRef = ref(db, 'users');
+                    const usersSnap = await get(usersRef);
+                    const updates = {};
+                    usersSnap.forEach(userChild => {
+                        const userData = userChild.val();
+                        if (userData.branch === oldBranchName) {
+                            updates[`${userChild.key}/branch`] = newBranchName;
+                        }
+                    });
+                    if (Object.keys(updates).length > 0) {
+                        await update(usersRef, updates);
+                    }
+
+                    // 4. Update attendance records
+                    const attendanceRef = ref(db, 'attendance');
+                    const attendanceSnap = await get(attendanceRef);
+                    const attendanceUpdates = {};
+                    attendanceSnap.forEach(dateChild => {
+                        const dateData = dateChild.val();
+                        for (const branchKey in dateData) {
+                            if (branchKey === oldBranchName) {
+                                const branchContent = dateData[branchKey];
+                                attendanceUpdates[`${dateChild.key}/${newBranchName}`] = branchContent;
+                                attendanceUpdates[`${dateChild.key}/${oldBranchName}`] = null; // Delete old entry
+                            }
+                        }
+                    });
+                    if (Object.keys(attendanceUpdates).length > 0) {
+                        await update(attendanceRef, attendanceUpdates);
+                    }
+
+                    // Log activity
+                    const activityLogsRef = ref(db, `activityLogs/${getNow().toISOString().split('T')[0]}`);
+                    const newLogRef = push(activityLogsRef);
+                    await set(newLogRef, {
+                        timestamp: getNow().toISOString(),
+                        by: currentUserName,
+                        action: "Branch Renamed",
+                        section: "Branch Management",
+                        before: { branch: oldBranchName },
+                        after: { branch: newBranchName }
+                    });
+
+                    hideLoadingModal();
+                    showModal(`Branch "${oldBranchName}" successfully renamed to "${newBranchName}"!`);
+                    editBranchNameInput.value = '';
+                    editBranchNameInputContainer.classList.add('hidden');
+                    editBranchDropdown.value = '';
+                    populateBranchesAndSubdivisions(); // Refresh all dropdowns and lists
+                } catch (error) {
+                    hideLoadingModal();
+                    console.error("Error renaming branch:", error);
+                    showModal("Failed to rename branch: " + error.message, null, true);
+                }
+            });
+        });
+
+        // --- Edit Subdivision Name Logic ---
+        editSubdivisionBranchDropdown.addEventListener('change', async () => {
+            const selectedBranch = editSubdivisionBranchDropdown.value;
+            editSubdivisionDropdown.innerHTML = `<option value="">Select Subdivision to Edit</option>`;
+            editSubdivisionDropdown.disabled = true;
+            editSubdivisionNameInput.value = '';
+            editSubdivisionNameInputContainer.classList.add('hidden');
+
+            if (selectedBranch) {
+                try {
+                    const snap = await get(ref(db, `branches/${selectedBranch}/subdivisions`));
+                    const subdivisions = snap.val() || {};
+                    Object.keys(subdivisions).forEach(subKey => {
+                        const option = document.createElement("option");
+                        option.value = subKey;
+                        option.textContent = subKey.charAt(0).toUpperCase() + subKey.slice(1);
+                        editSubdivisionDropdown.appendChild(option);
+                    });
+                    editSubdivisionDropdown.disabled = false;
+                } catch (error) {
+                    console.error("Error loading subdivisions for edit:", error);
+                }
+            }
+        });
+
+        editSubdivisionDropdown.addEventListener('change', () => {
+            const selectedSubdivision = editSubdivisionDropdown.value;
+            if (selectedSubdivision) {
+                editSubdivisionNameInput.value = selectedSubdivision.charAt(0).toUpperCase() + selectedSubdivision.slice(1);
+                editSubdivisionNameInputContainer.classList.remove('hidden');
+            } else {
+                editSubdivisionNameInput.value = '';
+                editSubdivisionNameInputContainer.classList.add('hidden');
+            }
+        });
+
+        saveSubdivisionNameBtn.addEventListener('click', async () => {
+            if (currentUserRole !== 'Admin' && currentUserRole !== 'Dev') {
+                showModal("Access Denied: You do not have permission to edit subdivisions.", null, true);
+                return;
+            }
+
+            const selectedBranch = editSubdivisionBranchDropdown.value;
+            const oldSubdivisionName = editSubdivisionDropdown.value;
+            const newSubdivisionName = editSubdivisionNameInput.value.trim().toLowerCase();
+
+            if (!selectedBranch) {
+                showModal("Please select a branch first.", null, true);
+                return;
+            }
+            if (!oldSubdivisionName) {
+                showModal("Please select a subdivision to edit.", null, true);
+                return;
+            }
+            if (!newSubdivisionName) {
+                showModal("New subdivision name cannot be empty.", null, true);
+                return;
+            }
+            if (oldSubdivisionName === newSubdivisionName) {
+                showModal("New subdivision name is the same as the old name.", null, true);
+                return;
+            }
+
+            showModal(`Are you sure you want to rename subdivision "${oldSubdivisionName}" to "${newSubdivisionName}" under branch "${selectedBranch}"? This will update all associated records.`, async (confirm) => {
+                if (!confirm) return;
+
+                showLoadingModal(`Renaming subdivision "${oldSubdivisionName}" to "${newSubdivisionName}"...`);
+                try {
+                    // Check if new subdivision name already exists under the same branch
+                    const newSubdivisionRef = ref(db, `branches/${selectedBranch}/subdivisions/${newSubdivisionName}`);
+                    const newSubdivisionSnap = await get(newSubdivisionRef);
+                    if (newSubdivisionSnap.exists()) {
+                        hideLoadingModal();
+                        showModal(`Subdivision "${newSubdivisionName}" already exists under "${selectedBranch}". Please choose a different name.`, null, true);
+                        return;
+                    }
+
+                    // Get old subdivision data
+                    const oldSubdivisionRef = ref(db, `branches/${selectedBranch}/subdivisions/${oldSubdivisionName}`);
+                    const oldSubdivisionSnap = await get(oldSubdivisionRef);
+                    const subdivisionData = oldSubdivisionSnap.val();
+
+                    if (!subdivisionData) {
+                        hideLoadingModal();
+                        showModal(`Subdivision "${oldSubdivisionName}" not found under "${selectedBranch}".`, null, true);
+                        return;
+                    }
+
+                    // 1. Copy data to new subdivision name
+                    await set(newSubdivisionRef, subdivisionData);
+
+                    // 2. Delete old subdivision entry
+                    await remove(oldSubdivisionRef);
+
+                    // 3. Update user references in 'users' node
+                    const usersRef = ref(db, 'users');
+                    const usersSnap = await get(usersRef);
+                    const updates = {};
+                    usersSnap.forEach(userChild => {
+                        const userData = userChild.val();
+                        if (userData.branch === selectedBranch && userData.subdivision === oldSubdivisionName) {
+                            updates[`${userChild.key}/subdivision`] = newSubdivisionName;
+                        }
+                    });
+                    if (Object.keys(updates).length > 0) {
+                        await update(usersRef, updates);
+                    }
+
+                    // 4. Update attendance records
+                    const attendanceBranchRef = ref(db, `attendance`);
+                    const attendanceSnap = await get(attendanceBranchRef);
+                    const attendanceUpdates = {};
+                    attendanceSnap.forEach(dateChild => {
+                        const dateData = dateChild.val();
+                        if (dateData[selectedBranch] && dateData[selectedBranch][oldSubdivisionName]) {
+                            const oldSubdivisionContent = dateData[selectedBranch][oldSubdivisionName];
+                            attendanceUpdates[`${dateChild.key}/${selectedBranch}/${newSubdivisionName}`] = oldSubdivisionContent;
+                            attendanceUpdates[`${dateChild.key}/${selectedBranch}/${oldSubdivisionName}`] = null; // Delete old entry
+                        }
+                    });
+                    if (Object.keys(attendanceUpdates).length > 0) {
+                        await update(attendanceBranchRef, attendanceUpdates);
+                    }
+
+                    // Log activity
+                    const activityLogsRef = ref(db, `activityLogs/${getNow().toISOString().split('T')[0]}`);
+                    const newLogRef = push(activityLogsRef);
+                    await set(newLogRef, {
+                        timestamp: getNow().toISOString(),
+                        by: currentUserName,
+                        action: "Subdivision Renamed",
+                        section: "Branch Management",
+                        branch: selectedBranch,
+                        before: { subdivision: oldSubdivisionName },
+                        after: { subdivision: newSubdivisionName }
+                    });
+
+                    hideLoadingModal();
+                    showModal(`Subdivision "${oldSubdivisionName}" successfully renamed to "${newSubdivisionName}"!`);
+                    editSubdivisionNameInput.value = '';
+                    editSubdivisionNameInputContainer.classList.add('hidden');
+                    editSubdivisionBranchDropdown.value = '';
+                    editSubdivisionDropdown.innerHTML = `<option value="">Select Subdivision to Edit</option>`;
+                    editSubdivisionDropdown.disabled = true;
+                    populateBranchesAndSubdivisions(); // Refresh all dropdowns and lists
+                } catch (error) {
+                    hideLoadingModal();
+                    console.error("Error renaming subdivision:", error);
+                    showModal("Failed to rename subdivision: " + error.message, null, true);
+                }
+            });
+        });
+
 
     </script>
 </head>
@@ -3033,6 +3331,53 @@
                         Add Subdivision
                     </button>
                 </div>
+
+                <!-- Edit Branch Name Form -->
+                <div class="border p-4 rounded-lg bg-gray-50 mt-6">
+                    <h3 class="text-md font-semibold mb-3">Edit Branch Name</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Select Branch</label>
+                            <select id="edit-branch-dropdown" class="form-select border rounded px-3 py-2 w-full">
+                                <option value="">Select Branch to Edit</option>
+                            </select>
+                        </div>
+                        <div id="edit-branch-name-input-container" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700">New Branch Name <span class="text-red-500">*</span></label>
+                            <div class="flex gap-2">
+                                <input type="text" id="edit-branch-name-input" class="form-input border rounded px-3 py-2 w-full" placeholder="Enter new branch name">
+                                <button id="save-branch-name-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit Subdivision Name Form -->
+                <div class="border p-4 rounded-lg bg-gray-50 mt-6">
+                    <h3 class="text-md font-semibold mb-3">Edit Subdivision Name</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Select Branch</label>
+                            <select id="edit-subdivision-branch-dropdown" class="form-select border rounded px-3 py-2 w-full">
+                                <option value="">Select Branch</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Select Subdivision</label>
+                            <select id="edit-subdivision-dropdown" class="form-select border rounded px-3 py-2 w-full" disabled>
+                                <option value="">Select Subdivision to Edit</option>
+                            </select>
+                        </div>
+                        <div id="edit-subdivision-name-input-container" class="hidden col-span-full md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700">New Subdivision Name <span class="text-red-500">*</span></label>
+                            <div class="flex gap-2">
+                                <input type="text" id="edit-subdivision-name-input" class="form-input border rounded px-3 py-2 w-full" placeholder="Enter new subdivision name">
+                                <button id="save-subdivision-name-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
 
                 <!-- Manage Existing Branches & Subdivisions -->
                 <div class="mt-6">
