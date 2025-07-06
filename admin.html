@@ -1012,29 +1012,28 @@
 
             showLoadingModal(`Searching for employee ID: ${employeeIdToSearch}...`);
             try {
-                const employeeData = await getEmployeeDetails(employeeIdToSearch);
+                // Use the new getEmployeeByEmployeeId function
+                const employeeData = await getEmployeeByEmployeeId(employeeIdToSearch);
 
                 if (employeeData) {
                     // Set dropdowns based on found employee
                     if (employeeData.isSpecial) {
                         indivBranchDropdown.value = "All";
                         indivSubdivisionDropdown.value = "All";
-                        populateIndivEmployees(true, true).then(() => {
-                            indivEmployeeDropdown.value = employeeData.id;
-                            hideLoadingModal();
-                            loadIndividualBtn.click(); // Trigger load
-                        });
+                        // Populate all employees and then select the specific one
+                        await populateIndivEmployees(true, true);
+                        indivEmployeeDropdown.value = employeeData.id;
                     } else {
                         indivBranchDropdown.value = employeeData.branch;
-                        populateSubdivisionDropdown(indivBranchDropdown, indivSubdivisionDropdown).then(() => {
-                            indivSubdivisionDropdown.value = employeeData.subdivision;
-                            populateEmployeeDropdown(indivBranchDropdown, indivSubdivisionDropdown, indivEmployeeDropdown).then(() => {
-                                indivEmployeeDropdown.value = employeeData.id;
-                                hideLoadingModal();
-                                loadIndividualBtn.click(); // Trigger load
-                            });
-                        });
+                        // Populate subdivisions for the selected branch
+                        await populateSubdivisionDropdown(indivBranchDropdown, indivSubdivisionDropdown);
+                        indivSubdivisionDropdown.value = employeeData.subdivision;
+                        // Populate employees for the selected branch and subdivision
+                        await populateEmployeeDropdown(indivBranchDropdown, indivSubdivisionDropdown, indivEmployeeDropdown);
+                        indivEmployeeDropdown.value = employeeData.id;
                     }
+                    hideLoadingModal();
+                    loadIndividualBtn.click(); // Trigger load
                 } else {
                     hideLoadingModal();
                     showModal(`Employee ID "${employeeIdToSearch}" not found in the database.`, null, true);
@@ -1391,7 +1390,7 @@
                 pdfHeaders.push("Afternoon Time");
             }
             pdfHeaders.push("Status", "Late?");
-
+            
             const pdfBody = [];
             currentIndividualRecords.forEach(record => {
                 const rowData = [
@@ -1440,6 +1439,7 @@
             const halfDays = indivHalfDays.textContent;
             const absentDays = indivAbsentDays.textContent;
             const lateDays = indivLateDays.textContent;
+            const totalLeave = indivTotalLeaveCountEl.textContent;
 
 
             let finalY = doc.autoTable.previous.finalY;
@@ -1542,6 +1542,13 @@
         const editSpecialEmployeeCheckbox = document.getElementById("edit-special-employee");
         const editBranchSubContainer = document.getElementById("edit-branch-sub-container");
 
+        // New elements for Employee ID search and Device ID reset
+        const searchEmployeeIdInput = document.getElementById('search-employee-id-input');
+        const searchEmployeeIdBtn = document.getElementById('search-employee-id-btn');
+        const deviceIdDisplay = document.getElementById('device-id-display');
+        const resetDeviceIdBtn = document.getElementById('reset-device-id-btn');
+        let currentEmployeeUid = null; // To store the UID of the currently loaded employee for device ID reset
+
 
         const removeEmployeeBranchDropdown = document.getElementById("remove-employee-branch");
         const removeEmployeeSubdivisionDropdown = document.getElementById("remove-employee-subdivision");
@@ -1570,9 +1577,9 @@
             subdivisionDropdown.innerHTML = `<option value="">Select Subdivision</option>`;
             subdivisionDropdown.disabled = true;
             if (!selBranch) {
-                return;
+                return Promise.resolve(); // Return a resolved promise if no branch selected
             }
-            get(ref(db, `branches/${selBranch}/subdivisions`))
+            return get(ref(db, `branches/${selBranch}/subdivisions`))
                 .then(snap => {
                     const subsObj = snap.val() || {};
                     Object.keys(subsObj).forEach(subKey => {
@@ -1581,7 +1588,10 @@
                     });
                     subdivisionDropdown.disabled = false;
                 })
-                .catch(err => console.error("Error loading subdivisions:", err));
+                .catch(err => {
+                    console.error("Error loading subdivisions:", err);
+                    return Promise.reject(err); // Propagate the error
+                });
         };
 
         // Function to populate employee dropdowns
@@ -1607,6 +1617,36 @@
             }
         };
 
+        // NEW: Function to search for an employee by their employee ID across all users
+        async function getEmployeeByEmployeeId(empId) {
+            const usersRef = ref(db, "users");
+            try {
+                const usersSnapshot = await get(usersRef);
+                let foundEmployee = null;
+                let foundUid = null;
+
+                usersSnapshot.forEach(userSnap => {
+                    const userData = userSnap.val();
+                    if (userData.id === empId) {
+                        foundEmployee = userData;
+                        foundUid = userSnap.key; // Get the UID
+                        return true; // Break forEach
+                    }
+                });
+
+                if (foundEmployee) {
+                    // Also fetch their detailed employee data from branches/specialEmployees
+                    const detailedEmpData = await getEmployeeDetails(empId, foundEmployee.branch, foundEmployee.subdivision);
+                    return { ...foundEmployee, ...detailedEmpData, uid: foundUid }; // Merge and add UID
+                }
+                return null; // Employee ID not found
+            } catch (error) {
+                console.error("Error searching employee by ID:", error);
+                throw error; // Re-throw to be caught by caller
+            }
+        }
+
+
         // Initial population for Add Employee
         populateBranchDropdowns(addEmployeeBranchDropdown);
         addEmployeeBranchDropdown.addEventListener("change", () => populateSubdivisionDropdown(addEmployeeBranchDropdown, addEmployeeSubdivisionDropdown));
@@ -1617,6 +1657,14 @@
             populateSubdivisionDropdown(editEmployeeBranchDropdown, editEmployeeSubdivisionDropdown);
             editEmployeeSelect.innerHTML = `<option value="">Select Employee</option>`; // Clear employee dropdown
             editEmployeeSelect.disabled = true;
+            // Clear fields when branch changes
+            document.getElementById("edit-employee-name").value = "";
+            document.getElementById("edit-employee-phone").value = "";
+            document.getElementById("edit-employee-email").value = "";
+            document.getElementById("edit-employee-designation").value = "";
+            deviceIdDisplay.textContent = "N/A";
+            resetDeviceIdBtn.classList.add('hidden');
+            currentEmployeeUid = null;
         });
         editEmployeeSubdivisionDropdown.addEventListener("change", () => populateEmployeeDropdown(editEmployeeBranchDropdown, editEmployeeSubdivisionDropdown, editEmployeeSelect));
 
@@ -1661,6 +1709,14 @@
                     populateEmployeeDropdown(editEmployeeBranchDropdown, editEmployeeSubdivisionDropdown, editEmployeeSelect);
                 }
             }
+            // Clear fields and device ID display when special employee checkbox changes
+            document.getElementById("edit-employee-name").value = "";
+            document.getElementById("edit-employee-phone").value = "";
+            document.getElementById("edit-employee-email").value = "";
+            document.getElementById("edit-employee-designation").value = "";
+            deviceIdDisplay.textContent = "N/A";
+            resetDeviceIdBtn.classList.add('hidden');
+            currentEmployeeUid = null;
         });
 
         // Handle "Special Employee" checkbox for Remove
@@ -1698,7 +1754,7 @@
                 .catch(err => console.error("Error loading special employees:", err));
         };
 
-        // Populate employee details when selected for editing
+        // Populate employee details when selected for editing (via dropdown)
         editEmployeeSelect.addEventListener("change", async () => {
             const employeeId = editEmployeeSelect.value;
             if (!employeeId) {
@@ -1706,6 +1762,9 @@
                 document.getElementById("edit-employee-phone").value = "";
                 document.getElementById("edit-employee-email").value = "";
                 document.getElementById("edit-employee-designation").value = ""; // Clear designation
+                deviceIdDisplay.textContent = "N/A";
+                resetDeviceIdBtn.classList.add('hidden');
+                currentEmployeeUid = null;
                 return;
             }
 
@@ -1714,12 +1773,22 @@
                 if (editSpecialEmployeeCheckbox.checked) {
                     const snap = await get(ref(db, `specialEmployees/${employeeId}`));
                     employeeData = snap.val();
+                    currentEmployeeUid = null; // Special employees don't have a direct UID in 'users'
                 } else {
                     const branch = editEmployeeBranchDropdown.value;
                     const subdivision = editEmployeeSubdivisionDropdown.value;
                     if (branch && subdivision) {
                         const snap = await get(ref(db, `branches/${branch}/subdivisions/${subdivision}/employees/${employeeId}`));
                         employeeData = snap.val();
+                        // Find the UID associated with this employeeId in the 'users' node
+                        const usersSnap = await get(ref(db, 'users'));
+                        usersSnap.forEach(userChild => {
+                            const userData = userChild.val();
+                            if (userData.id === employeeId) {
+                                currentEmployeeUid = userChild.key;
+                                return true; // Break forEach
+                            }
+                        });
                     }
                 }
 
@@ -1728,16 +1797,150 @@
                     document.getElementById("edit-employee-phone").value = employeeData.phone || "";
                     document.getElementById("edit-employee-email").value = employeeData.email || "";
                     document.getElementById("edit-employee-designation").value = employeeData.des || ""; // Populate designation
+
+                    // Display Device ID if available and show reset button
+                    if (currentEmployeeUid) {
+                        const userProfileSnap = await get(ref(db, `users/${currentEmployeeUid}`));
+                        const userProfileData = userProfileSnap.val();
+                        if (userProfileData && userProfileData.deviceId) {
+                            deviceIdDisplay.textContent = userProfileData.deviceId;
+                            resetDeviceIdBtn.classList.remove('hidden');
+                        } else {
+                            deviceIdDisplay.textContent = "N/A";
+                            resetDeviceIdBtn.classList.add('hidden');
+                        }
+                    } else {
+                        deviceIdDisplay.textContent = "N/A";
+                        resetDeviceIdBtn.classList.add('hidden');
+                    }
+
                 } else {
                     console.warn("Employee data not found for ID:", employeeId);
                     document.getElementById("edit-employee-name").value = "";
                     document.getElementById("edit-employee-phone").value = "";
                     document.getElementById("edit-employee-email").value = "";
                     document.getElementById("edit-employee-designation").value = ""; // Clear designation
+                    deviceIdDisplay.textContent = "N/A";
+                    resetDeviceIdBtn.classList.add('hidden');
+                    currentEmployeeUid = null;
                 }
             } catch (error) {
                 console.error("Error fetching employee details for edit:", error);
+                deviceIdDisplay.textContent = "N/A";
+                resetDeviceIdBtn.classList.add('hidden');
+                currentEmployeeUid = null;
             }
+        });
+
+        // NEW: Search Employee by ID button click handler
+        searchEmployeeIdBtn.addEventListener('click', async () => {
+            const empIdToSearch = searchEmployeeIdInput.value.trim();
+            if (!empIdToSearch) {
+                showModal("Please enter an Employee ID to search.", null, true);
+                return;
+            }
+
+            showLoadingModal(`Searching for employee ID: ${empIdToSearch}...`);
+            try {
+                const employeeData = await getEmployeeByEmployeeId(empIdToSearch);
+
+                if (employeeData) {
+                    // Autofill fields
+                    document.getElementById("edit-employee-name").value = employeeData.name || "";
+                    document.getElementById("edit-employee-phone").value = employeeData.phone || "";
+                    document.getElementById("edit-employee-email").value = employeeData.email || "";
+                    document.getElementById("edit-employee-designation").value = employeeData.des || "";
+
+                    // Set dropdowns
+                    if (employeeData.isSpecial) {
+                        editSpecialEmployeeCheckbox.checked = true;
+                        editBranchSubContainer.classList.add('hidden');
+                        editEmployeeBranchDropdown.value = "";
+                        editEmployeeSubdivisionDropdown.value = "";
+                        editEmployeeSubdivisionDropdown.disabled = true;
+                        // Populate special employees dropdown and select the found one
+                        await populateSpecialEmployees(editEmployeeSelect);
+                        editEmployeeSelect.value = employeeData.id;
+                    } else {
+                        editSpecialEmployeeCheckbox.checked = false;
+                        editBranchSubContainer.classList.remove('hidden');
+                        editEmployeeBranchDropdown.value = employeeData.branch;
+                        await populateSubdivisionDropdown(editEmployeeBranchDropdown, editEmployeeSubdivisionDropdown);
+                        editEmployeeSubdivisionDropdown.value = employeeData.subdivision;
+                        await populateEmployeeDropdown(editEmployeeBranchDropdown, editEmployeeSubdivisionDropdown, editEmployeeSelect);
+                        editEmployeeSelect.value = employeeData.id;
+                    }
+
+                    // Store the UID if found, for Device ID reset
+                    currentEmployeeUid = employeeData.uid || null;
+
+                    // Display Device ID and show reset button if applicable
+                    if (employeeData.deviceId) {
+                        deviceIdDisplay.textContent = employeeData.deviceId;
+                        resetDeviceIdBtn.classList.remove('hidden');
+                    } else {
+                        deviceIdDisplay.textContent = "N/A";
+                        resetDeviceIdBtn.classList.add('hidden');
+                    }
+                    showModal(`Employee "${employeeData.name}" (ID: ${empIdToSearch}) found and loaded.`);
+                } else {
+                    showModal(`Employee ID "${empIdToSearch}" not found.`, null, true);
+                    // Clear all fields if not found
+                    document.getElementById("edit-employee-name").value = "";
+                    document.getElementById("edit-employee-phone").value = "";
+                    document.getElementById("edit-employee-email").value = "";
+                    document.getElementById("edit-employee-designation").value = "";
+                    editEmployeeSelect.value = "";
+                    deviceIdDisplay.textContent = "N/A";
+                    resetDeviceIdBtn.classList.add('hidden');
+                    currentEmployeeUid = null;
+                }
+            } catch (error) {
+                console.error("Error during employee ID search:", error);
+                showModal("An error occurred during search. Please try again.", null, true);
+            } finally {
+                hideLoadingModal();
+            }
+        });
+
+        // NEW: Reset Device ID button click handler
+        resetDeviceIdBtn.addEventListener('click', async () => {
+            if (!currentEmployeeUid) {
+                showModal("No employee selected or UID not found to reset Device ID.", null, true);
+                return;
+            }
+
+            showModal("Are you sure you want to reset this employee's Device ID? They will need to log in again on their device.", async (confirm) => {
+                if (!confirm) return;
+
+                showLoadingModal("Resetting Device ID...");
+                try {
+                    const userRef = ref(db, `users/${currentEmployeeUid}`);
+                    await update(userRef, { deviceId: null }); // Set to null to remove the field
+
+                    // Log activity
+                    const activityLogsRef = ref(db, `activityLogs/${getNow().toISOString().split('T')[0]}`);
+                    const newLogRef = push(activityLogsRef);
+                    await set(newLogRef, {
+                        timestamp: getNow().toISOString(),
+                        by: currentUserName,
+                        action: "Device ID Reset",
+                        section: "Employee Management",
+                        employeeId: document.getElementById("edit-employee-select").value || searchEmployeeIdInput.value,
+                        employeeName: document.getElementById("edit-employee-name").value,
+                        targetUid: currentEmployeeUid
+                    });
+
+                    deviceIdDisplay.textContent = "N/A";
+                    resetDeviceIdBtn.classList.add('hidden');
+                    showModal("Device ID has been cleared. Employee can now login from a new device.");
+                } catch (error) {
+                    console.error("Error resetting Device ID:", error);
+                    showModal("Failed to reset Device ID: " + error.message, null, true);
+                } finally {
+                    hideLoadingModal();
+                }
+            });
         });
 
 
@@ -1768,12 +1971,12 @@
                     try {
                         let employeeExists = false;
 
-                        // 1. Check if empId exists in any user's profile (users/{uid}/empId)
+                        // 1. Check if empId exists in any user's profile (users/{uid}/id)
                         const usersRef = ref(db, "users");
                         const usersSnapshot = await get(usersRef);
                         usersSnapshot.forEach(userSnap => {
                             const userData = userSnap.val();
-                            if (userData.empId === empId) {
+                            if (userData.id === empId) { // Check against 'id' field, not 'empId'
                                 employeeExists = true;
                                 return true; // Break forEach
                             }
@@ -1810,7 +2013,7 @@
                             phone: phone || null, // Allow phone to be optional
                             email: email || null, // Allow email to be optional
                             des: designation, // Store designation
-                            isSpecial: isSpecial || null // Store as null if false
+                            isSpecial: isSpecial || null
                         };
 
                         let employeeDbPath;
@@ -1897,18 +2100,18 @@
                 if (confirm) {
                     showLoadingModal("Saving changes...");
                     try {
-                        let employeeRef;
+                        let employeeRefPath;
                         let oldEmployeeData = null;
 
                         if (isSpecial) {
-                            employeeRef = ref(db, `specialEmployees/${employeeId}`);
-                            const snap = await get(employeeRef);
-                            oldEmployeeData = snap.val();
+                            employeeRefPath = `specialEmployees/${employeeId}`;
                         } else {
-                            employeeRef = ref(db, `branches/${branch}/subdivisions/${subdivision}/employees/${employeeId}`);
-                            const snap = await get(employeeRef);
-                            oldEmployeeData = snap.val();
+                            employeeRefPath = `branches/${branch}/subdivisions/${subdivision}/employees/${employeeId}`;
                         }
+                        const employeeRef = ref(db, employeeRefPath);
+                        const snap = await get(employeeRef);
+                        oldEmployeeData = snap.val();
+
 
                         if (!oldEmployeeData) {
                             hideLoadingModal();
@@ -1925,6 +2128,21 @@
                         };
 
                         await update(employeeRef, updatedData);
+
+                        // Also update the 'users' node if a corresponding user exists
+                        if (currentEmployeeUid) {
+                            const userRef = ref(db, `users/${currentEmployeeUid}`);
+                            const userUpdates = {
+                                name: name,
+                                email: email || null,
+                                phone: phone || null,
+                                des: designation,
+                                branch: isSpecial ? 'N/A' : branch, // Update branch/subdivision in user node
+                                subdivision: isSpecial ? 'Special' : subdivision
+                            };
+                            await update(userRef, userUpdates);
+                        }
+
 
                         // Log activity - CORRECTED USAGE OF PUSH
                         const activityLogsRef = ref(db, `activityLogs/${getNow().toISOString().split('T')[0]}`);
@@ -1954,6 +2172,10 @@
                         editEmployeeBranchDropdown.value = "";
                         editEmployeeSubdivisionDropdown.value = "";
                         editEmployeeSubdivisionDropdown.disabled = true;
+                        deviceIdDisplay.textContent = "N/A";
+                        resetDeviceIdBtn.classList.add('hidden');
+                        currentEmployeeUid = null;
+                        searchEmployeeIdInput.value = ""; // Clear search input
 
                         // Re-populate dropdowns
                         populateBranchDropdowns(editEmployeeBranchDropdown);
@@ -2007,7 +2229,7 @@
                     let userUidToDelete = null;
                     usersSnap.forEach(userSnap => {
                         const data = userSnap.val();
-                        if (data.empId === empId) {
+                        if (data.id === empId) { // Check against 'id' field
                             userUidToDelete = userSnap.key;
                         }
                     });
@@ -3334,6 +3556,15 @@
                 <div id="edit-tab-edit-employee" class="edit-tab-content hidden">
                     <h3 class="text-md font-semibold mb-3">Edit Existing Employee</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- New Search by Employee ID section -->
+                        <div class="col-span-full mb-4">
+                            <label class="block text-sm font-medium text-gray-700">Search Employee by ID</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="search-employee-id-input" class="form-input border rounded px-3 py-2 w-full" placeholder="Enter Employee ID to search">
+                                <button id="search-employee-id-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Search</button>
+                            </div>
+                        </div>
+
                         <div class="flex items-center mt-2 col-span-full">
                             <input type="checkbox" id="edit-special-employee"
                                 class="form-checkbox h-4 w-4 text-blue-600 rounded">
@@ -3381,6 +3612,14 @@
                             <label class="block text-sm font-medium text-gray-700">Email</label>
                             <input type="email" id="edit-employee-email"
                                 class="form-input border rounded px-3 py-2 w-full" placeholder="Enter email address">
+                        </div>
+                        <!-- Device ID Display and Reset Button -->
+                        <div class="col-span-full flex flex-col sm:flex-row items-center gap-4 mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                            <p class="text-sm font-medium text-gray-700">Device ID:</p>
+                            <span id="device-id-display" class="font-bold text-gray-800 flex-grow">N/A</span>
+                            <button id="reset-device-id-btn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded font-medium hidden">
+                                Reset Device ID
+                            </button>
                         </div>
                     </div>
                     <button id="save-employee-btn"
