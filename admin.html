@@ -17,7 +17,7 @@
             authDomain: "diya-hero.firebaseapp.com",
             databaseURL: "https://diya-hero-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "diya-hero",
-            storageBucket: "diya-hero.firebasestorage.app",
+            storageBucket: "diya-hero.firebase.app",
             messagingSenderId: "455829653263",
             appId: "1:455829653263:web:5a31c65bdab2b9cee0607a",
             measurementId: "G-DZYHPLQD3F"
@@ -728,7 +728,7 @@
             const halfDays = recordsHalfDays.textContent;
             const absentDays = recordsAbsentDays.textContent;
             const lateDays = recordsLateDays.textContent;
-            const totalLeave = recordsTotalLeaveCountEl.textContent;
+            const totalLeaveValue = recordsTotalLeaveCountEl.textContent; // Renamed to avoid conflict
 
             let finalY = doc.autoTable.previous.finalY;
             doc.setFontSize(10);
@@ -737,7 +737,7 @@
             doc.text(`Total Half Days: ${halfDays}`, 14, finalY + 20);
             doc.text(`Total Absent Days: ${absentDays}`, 14, finalY + 25);
             doc.text(`Total Late Days: ${lateDays}`, 14, finalY + 30);
-            doc.text(`Total Leave Taken: ${totalLeave}`, 14, finalY + 35);
+            doc.text(`Total Leave Taken: ${totalLeaveValue}`, 14, finalY + 35); // Using renamed variable
 
 
             doc.save("Employee_Records_Report.pdf");
@@ -776,7 +776,7 @@
             const halfDays = recordsHalfDays.textContent;
             const absentDays = recordsAbsentDays.textContent;
             const lateDays = recordsLateDays.textContent;
-            const totalLeave = recordsTotalLeaveCountEl.textContent;
+            const totalLeaveValue = recordsTotalLeaveCountEl.textContent; // Renamed to avoid conflict
 
             ws_data.push([]);
             ws_data.push(["Summary:"]);
@@ -784,7 +784,7 @@
             ws_data.push([`Total Half Days: ${halfDays}`]);
             ws_data.push([`Total Absent Days: ${absentDays}`]);
             ws_data.push([`Total Late Days: ${lateDays}`]);
-            ws_data.push([`Total Leave Taken: ${totalLeave}`]);
+            ws_data.push([`Total Leave Taken: ${totalLeaveValue}`]); // Using renamed variable
 
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
@@ -1371,7 +1371,7 @@
             const toDate = indivToDateInput.value;
             const showTimes = indivToggleTimesCheckbox.checked;
             const designation = document.getElementById('indiv-employee-details-header').querySelector('p:first-child').textContent.split('Designation: ')[1].split(',')[0].trim();
-            const totalLeave = indivTotalLeaveCountEl.textContent;
+            const pdfTotalLeave = indivTotalLeaveCountEl.textContent; // Renamed variable
 
             doc.text(`Individual Attendance Records for ${employeeName}`, 14, 15);
             doc.text(`Designation: ${designation}`, 14, 20);
@@ -1439,7 +1439,6 @@
             const halfDays = indivHalfDays.textContent;
             const absentDays = indivAbsentDays.textContent;
             const lateDays = indivLateDays.textContent;
-            const totalLeave = indivTotalLeaveCountEl.textContent;
 
 
             let finalY = doc.autoTable.previous.finalY;
@@ -1449,7 +1448,7 @@
             doc.text(`Total Half Days: ${halfDays}`, 14, finalY + 20);
             doc.text(`Total Absent Days: ${absentDays}`, 14, finalY + 25);
             doc.text(`Total Late Days: ${lateDays}`, 14, finalY + 30);
-            doc.text(`Total Leave Taken: ${totalLeave}`, 14, finalY + 35);
+            doc.text(`Total Leave Taken: ${pdfTotalLeave}`, 14, finalY + 35); // Using renamed variable
 
 
             doc.save(`Individual_Records_${employeeName}.pdf`);
@@ -1467,7 +1466,7 @@
             const toDate = indivToDateInput.value;
             const showTimes = indivToggleTimesCheckbox.checked;
             const designation = document.getElementById('indiv-employee-details-header').querySelector('p:first-child').textContent.split('Designation: ')[1].split(',')[0].trim();
-            const totalLeave = indivTotalLeaveCountEl.textContent;
+            const excelTotalLeave = indivTotalLeaveCountEl.textContent; // Renamed variable
 
             const ws_data = [
                 [`Individual Attendance Records for ${employeeName}`],
@@ -1520,7 +1519,7 @@
             ws_data.push([`Total Half Days: ${halfDays}`]);
             ws_data.push([`Total Absent Days: ${absentDays}`]);
             ws_data.push([`Total Late Days: ${lateDays}`]);
-            ws_data.push([`Total Leave Taken: ${totalLeave}`]);
+            ws_data.push([`Total Leave Taken: ${excelTotalLeave}`]); // Using renamed variable
 
 
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
