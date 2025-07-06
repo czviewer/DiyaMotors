@@ -431,7 +431,7 @@
             const toDateStr = document.getElementById("record-to").value;
             const showTimes = document.getElementById("toggle-times").checked;
 
-            recordsTableBody.innerHTML = '<tr><td colspan="9" class="text-center text-gray-500 py-4">Loading records...</td></tr>';
+            recordsTableBody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">Loading records...</td></tr>';
             recordsSummary.classList.add('hidden');
             currentEmployeeRecords = []; // Clear for new export
 
@@ -444,7 +444,7 @@
 
             if (!fromDateStr || !toDateStr) {
                 showModal("Please select both 'From' and 'To' dates.", null, true);
-                recordsTableBody.innerHTML = '<tr><td colspan="9" class="text-center text-gray-500 py-4">Select filters and click "Load All Records" to view.</td></tr>';
+                recordsTableBody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">Select filters and click "Load All Records" to view.</td></tr>';
                 return;
             }
 
@@ -454,7 +454,7 @@
 
             if (fromDate > toDate) {
                 showModal("From date cannot be after To date.", null, true);
-                recordsTableBody.innerHTML = '<tr><td colspan="9" class="text-center text-gray-500 py-4">Select filters and click "Load All Records" to view.</td></tr>';
+                recordsTableBody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">Select filters and click "Load All Records" to view.</td></tr>';
                 return;
             }
 
@@ -503,6 +503,7 @@
 
                 for (let d = new Date(fromDate); d < toDate; d.setDate(d.getDate() + 1)) {
                     const currentDate = d.toISOString().split('T')[0]; //YYYY-MM-DD
+                    const currentDayOfWeek = new Date(currentDate).getDay(); // 0 for Sunday
 
                     for (const empId in allEmployees) {
                         const empDetails = allEmployees[empId];
@@ -530,6 +531,7 @@
                             let enterLeaveTime = '-';
                             let overallStatus = 'Absent';
                             let lateIndicator = '';
+                            let sundayWork = false; // Initialize sundayWork flag
 
                             if (attendance) {
                                 if (attendance.morning === true) {
@@ -550,6 +552,11 @@
                                 if (attendance.late) {
                                     lateIndicator = `(LATE: ${formatTime(attendance.lateTime)})`;
                                     summaryLateDays++;
+                                }
+
+                                // Check for sundayWork flag
+                                if (currentDayOfWeek === 0 && attendance.sundayWork === true) {
+                                    sundayWork = true;
                                 }
 
                                 // Determine overall status based on attendance
@@ -593,7 +600,8 @@
                                 enterLeaveTime: showTimes ? enterLeaveTime : '-',
                                 status: overallStatus,
                                 late: lateIndicator,
-                                isLate: !!lateIndicator // Boolean for conditional styling
+                                isLate: !!lateIndicator, // Boolean for conditional styling
+                                sundayWork: sundayWork // Add sundayWork flag
                             });
                         }
                     }
@@ -621,7 +629,7 @@
 
             } catch (error) {
                 console.error("Error loading employee records:", error);
-                recordsTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-red-500">Error loading records.</td></tr>';
+                recordsTableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-red-500">Error loading records.</td></tr>';
             }
         });
 
@@ -630,7 +638,7 @@
             tableBody.innerHTML = ''; // Clear previous records
 
             if (records.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4">No attendance records found for the selected criteria.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4">No attendance records found for the selected criteria.</td></tr>';
                 return;
             }
 
@@ -665,6 +673,9 @@
                         overallStatusClass = 'status-pending';
                 }
 
+                // Determine Sunday Work tick
+                const sundayWorkTick = record.sundayWork ? '<span class="text-green-600 font-bold" title="Worked on Sunday">✔️</span>' : '-';
+
                 row.innerHTML = `
                     <td class="py-2 px-4">${new Date(record.date).toLocaleDateString("en-IN")}</td>
                     <td class="py-2 px-4">${record.employeeName}</td>
@@ -687,6 +698,7 @@
                         </span>
                     </td>
                     <td class="py-2 px-4 ${record.isLate ? 'text-red-600 font-bold' : ''}">${record.late || '-'}</td>
+                    <td class="py-2 px-4">${sundayWorkTick}</td> <!-- New Sunday Work column -->
                 `;
                 tableBody.appendChild(row);
             });
@@ -710,7 +722,7 @@
             doc.text(`Branch: ${recordBranchDropdown.value || 'All'} | Subdivision: ${recordSubdivisionDropdown.value || 'All'}`, 14, 27);
 
             const pdfHeaders = [
-                "Date", "Employee", "Branch", "Subdivision", "Morning", "Afternoon", "Enter/Leave Time", "Status", "Late?"
+                "Date", "Employee", "Branch", "Subdivision", "Morning", "Afternoon", "Enter/Leave Time", "Status", "Late?", "Sunday Work"
             ];
 
             const pdfBody = currentEmployeeRecords.map(record => {
@@ -724,6 +736,7 @@
                     record.enterLeaveTime,
                     record.status,
                     record.late || '-',
+                    record.sundayWork ? '✔️' : 'No' // Add Sunday Work to PDF
                 ];
                 return rowData;
             });
@@ -745,6 +758,11 @@
                         cellWidth: 15,
                         fontStyle: 'bold',
                         textColor: [255, 0, 0] // Red color for Late column
+                    },
+                    9: { // "Sunday Work" column
+                        cellWidth: 15,
+                        fontStyle: 'bold',
+                        textColor: [0, 128, 0] // Green color for Sunday Work
                     }
                 },
                 headStyles: {
@@ -758,20 +776,20 @@
                 margin: { top: 30 }
             });
 
-            const fullDays = recordsFullDays.textContent;
-            const halfDays = recordsHalfDays.textContent;
-            const absentDays = recordsAbsentDays.textContent;
-            const lateDays = recordsLateDays.textContent;
-            const pdfTotalLeave = recordsTotalLeaveCountEl.textContent; // Renamed to avoid conflict
+            const reportPdfFullDays = recordsFullDays.textContent;
+            const reportPdfHalfDays = recordsHalfDays.textContent;
+            const reportPdfAbsentDays = recordsAbsentDays.textContent;
+            const reportPdfLateDays = recordsLateDays.textContent;
+            const reportPdfTotalLeave = recordsTotalLeaveCountEl.textContent; // Renamed variable for clarity
 
             let finalY = doc.autoTable.previous.finalY;
             doc.setFontSize(10);
             doc.text(`Summary:`, 14, finalY + 10);
-            doc.text(`Total Full Days: ${fullDays}`, 14, finalY + 15);
-            doc.text(`Total Half Days: ${halfDays}`, 14, finalY + 20);
-            doc.text(`Total Absent Days: ${absentDays}`, 14, finalY + 25);
-            doc.text(`Total Late Days: ${lateDays}`, 14, finalY + 30);
-            doc.text(`Total Leave Taken: ${pdfTotalLeave}`, 14, finalY + 35); // Using renamed variable
+            doc.text(`Total Full Days: ${reportPdfFullDays}`, 14, finalY + 15);
+            doc.text(`Total Half Days: ${reportPdfHalfDays}`, 14, finalY + 20);
+            doc.text(`Total Absent Days: ${reportPdfAbsentDays}`, 14, finalY + 25);
+            doc.text(`Total Late Days: ${reportPdfLateDays}`, 14, finalY + 30);
+            doc.text(`Total Leave Taken: ${reportPdfTotalLeave}`, 14, finalY + 35);
 
 
             doc.save("Employee_Records_Report.pdf");
@@ -789,7 +807,7 @@
                 [`From: ${document.getElementById("record-from").value || 'N/A'} To: ${document.getElementById("record-to").value || 'N/A'}`],
                 [`Branch: ${recordBranchDropdown.value || 'All'} | Subdivision: ${recordSubdivisionDropdown.value || 'All'}`],
                 [], // Empty row for spacing
-                ["Date", "Employee", "Branch", "Subdivision", "Morning", "Afternoon", "Enter/Leave Time", "Status", "Late?"] // Headers
+                ["Date", "Employee", "Branch", "Subdivision", "Morning", "Afternoon", "Enter/Leave Time", "Status", "Late?", "Sunday Work"] // Headers
             ];
 
             currentEmployeeRecords.forEach(record => {
@@ -803,22 +821,23 @@
                     record.enterLeaveTime,
                     record.status,
                     record.late || '-',
+                    record.sundayWork ? 'Yes' : 'No', // Add Sunday Work to Excel
                 ]);
             });
 
-            const fullDays = recordsFullDays.textContent;
-            const halfDays = recordsHalfDays.textContent;
-            const absentDays = recordsAbsentDays.textContent;
-            const lateDays = recordsLateDays.textContent;
-            const excelTotalLeave = recordsTotalLeaveCountEl.textContent; // Renamed to avoid conflict
+            const reportExcelFullDays = recordsFullDays.textContent;
+            const reportExcelHalfDays = recordsHalfDays.textContent;
+            const reportExcelAbsentDays = recordsAbsentDays.textContent;
+            const reportExcelLateDays = recordsLateDays.textContent;
+            const reportExcelTotalLeave = recordsTotalLeaveCountEl.textContent; // Renamed variable for clarity
 
             ws_data.push([]);
             ws_data.push(["Summary:"]);
-            ws_data.push([`Total Full Days: ${fullDays}`]);
-            ws_data.push([`Total Half Days: ${halfDays}`]);
-            ws_data.push([`Total Absent Days: ${absentDays}`]);
-            ws_data.push([`Total Late Days: ${lateDays}`]);
-            ws_data.push([`Total Leave Taken: ${excelTotalLeave}`]); // Using renamed variable
+            ws_data.push([`Total Full Days: ${reportExcelFullDays}`]);
+            ws_data.push([`Total Half Days: ${reportExcelHalfDays}`]);
+            ws_data.push([`Total Absent Days: ${reportExcelAbsentDays}`]);
+            ws_data.push([`Total Late Days: ${reportExcelLateDays}`]);
+            ws_data.push([`Total Leave Taken: ${reportExcelTotalLeave}`]);
 
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
@@ -832,7 +851,8 @@
                 { wch: 10 }, // Afternoon
                 { wch: 20 }, // Enter/Leave Time
                 { wch: 15 }, // Status
-                { wch: 15 }  // Late?
+                { wch: 15 },  // Late?
+                { wch: 15 }  // Sunday Work
             ];
 
             // Apply bold to headers
@@ -1158,7 +1178,7 @@
                     // Specific employee selected
                     const employeeData = await getEmployeeDetails(selectedEmployeeId, selectedBranch, selectedSubdivision);
                     if (!employeeData) {
-                        indivRecordsTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-red-500">Employee data not found.</td></tr>';
+                        indivRecordsTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-red-500">Employee data not found.</td></tr>';
                         loadingIndividualIndicator.classList.add('hidden');
                         return;
                     }
@@ -1167,7 +1187,7 @@
                 }
 
                 if (employeesToFetch.size === 0) {
-                    indivRecordsTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4">No employees found for the selected filters.</td></tr>';
+                    indivRecordsTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4">No employees found for the selected filters.</td></tr>';
                     loadingIndividualIndicator.classList.add('hidden');
                     return;
                 }
@@ -1181,6 +1201,7 @@
 
                 for (let d = new Date(fromDate); d < toDate; d.setDate(d.getDate() + 1)) {
                     const currentDate = d.toISOString().split('T')[0]; //YYYY-MM-DD
+                    const currentDayOfWeek = new Date(currentDate).getDay(); // 0 for Sunday
 
                     for (const [empId, empDetails] of employeesToFetch.entries()) {
                         let attendance = null;
@@ -1208,6 +1229,7 @@
                             let afternoonTime = '-';
                             let overallStatus = 'Absent'; // Default, will be updated
                             let lateIndicator = '';
+                            let sundayWork = false; // Initialize sundayWork flag
 
                             if (attendance) {
                                 if (attendance.morning === true) {
@@ -1223,6 +1245,11 @@
                                 if (attendance.late) {
                                     lateIndicator = `(LATE: ${formatTime(attendance.lateTime)})`;
                                     summaryLateDays++;
+                                }
+
+                                // Check for sundayWork flag
+                                if (currentDayOfWeek === 0 && attendance.sundayWork === true) {
+                                    sundayWork = true;
                                 }
 
                                 // Determine overall status based on attendance
@@ -1270,7 +1297,8 @@
                                 branch: empDetails.branch,
                                 subdivision: empDetails.subdivision,
                                 employeeId: empId,
-                                designation: empDetails.des || 'Not Set' // Include designation
+                                designation: empDetails.des || 'Not Set', // Include designation
+                                sundayWork: sundayWork // Add sundayWork flag
                             });
                         }
                     }
@@ -1313,7 +1341,7 @@
 
             } catch (error) {
                 console.error("Error loading individual records:", error);
-                indivRecordsTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-red-500">Error loading records.</td></tr>';
+                indivRecordsTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-red-500">Error loading records.</td></tr>';
             } finally {
                 loadingIndividualIndicator.classList.add('hidden');
             }
@@ -1329,7 +1357,7 @@
             });
 
             if (records.length === 0) {
-                indivRecordsTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4">No attendance records found for the selected criteria.</td></tr>';
+                indivRecordsTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4">No attendance records found for the selected criteria.</td></tr>';
                 return;
             }
 
@@ -1364,6 +1392,10 @@
                         overallStatusClass = 'status-pending';
                 }
 
+                // Determine Sunday Work tick
+                const sundayWorkTick = record.sundayWork ? '<span class="text-green-600 font-bold" title="Worked on Sunday">✔️</span>' : '-';
+
+
                 row.innerHTML = `
                     <td class="py-2 px-4">${new Date(record.date).toLocaleDateString("en-CA")}</td>
                     <td class="py-2 px-4">
@@ -1384,6 +1416,7 @@
                         </span>
                     </td>
                     <td class="py-2 px-4 ${record.lateIndicator ? 'text-red-600 font-bold' : ''}">${record.lateIndicator || '-'}</td>
+                    <td class="py-2 px-4">${sundayWorkTick}</td> <!-- New Sunday Work column -->
                 `;
                 indivRecordsTableBody.appendChild(row);
             });
@@ -1405,7 +1438,7 @@
             const toDate = indivToDateInput.value;
             const showTimes = indivToggleTimesCheckbox.checked;
             const designation = document.getElementById('indiv-employee-details-header').querySelector('p:first-child').textContent.split('Designation: ')[1].split(',')[0].trim();
-            const pdfTotalLeave = indivTotalLeaveCountEl.textContent; // Renamed variable
+            const indivPdfTotalLeave = indivTotalLeaveCountEl.textContent; // Renamed variable for clarity
 
             doc.text(`Individual Attendance Records for ${employeeName}`, 14, 15);
             doc.text(`Designation: ${designation}`, 14, 20);
@@ -1423,7 +1456,7 @@
             if (showTimes) {
                 pdfHeaders.push("Afternoon Time");
             }
-            pdfHeaders.push("Status", "Late?");
+            pdfHeaders.push("Status", "Late?", "Sunday Work"); // Add Sunday Work header
             
             const pdfBody = [];
             currentIndividualRecords.forEach(record => {
@@ -1440,6 +1473,7 @@
                 }
                 rowData.push(record.overallStatus);
                 rowData.push(record.lateIndicator || '-');
+                rowData.push(record.sundayWork ? '✔️' : 'No'); // Add Sunday Work to PDF
                 pdfBody.push(rowData);
             });
 
@@ -1464,25 +1498,29 @@
                 columnStyles: {
                     'Late?': {
                         textColor: [255, 0, 0], // Red color for Late column
+                    },
+                    'Sunday Work': { // Style for Sunday Work column
+                        textColor: [0, 128, 0], // Green color
+                        fontStyle: 'bold'
                     }
                 },
                 margin: { top: 30 }
             });
 
-            const fullDays = indivFullDays.textContent;
-            const halfDays = indivHalfDays.textContent;
-            const absentDays = indivAbsentDays.textContent;
-            const lateDays = indivLateDays.textContent;
+            const indivPdfFullDays = indivFullDays.textContent;
+            const indivPdfHalfDays = indivHalfDays.textContent;
+            const indivPdfAbsentDays = indivAbsentDays.textContent;
+            const indivPdfLateDays = indivLateDays.textContent;
 
 
             let finalY = doc.autoTable.previous.finalY;
             doc.setFontSize(10);
             doc.text(`Summary:`, 14, finalY + 10);
-            doc.text(`Total Full Days: ${fullDays}`, 14, finalY + 15);
-            doc.text(`Total Half Days: ${halfDays}`, 14, finalY + 20);
-            doc.text(`Total Absent Days: ${absentDays}`, 14, finalY + 25);
-            doc.text(`Total Late Days: ${lateDays}`, 14, finalY + 30);
-            doc.text(`Total Leave Taken: ${pdfTotalLeave}`, 14, finalY + 35); // Using renamed variable
+            doc.text(`Total Full Days: ${indivPdfFullDays}`, 14, finalY + 15);
+            doc.text(`Total Half Days: ${indivPdfHalfDays}`, 14, finalY + 20);
+            doc.text(`Total Absent Days: ${indivPdfAbsentDays}`, 14, finalY + 25);
+            doc.text(`Total Late Days: ${indivPdfLateDays}`, 14, finalY + 30);
+            doc.text(`Total Leave Taken: ${indivPdfTotalLeave}`, 14, finalY + 35);
 
 
             doc.save(`Individual_Records_${employeeName}.pdf`);
@@ -1500,7 +1538,7 @@
             const toDate = indivToDateInput.value;
             const showTimes = indivToggleTimesCheckbox.checked;
             const designation = document.getElementById('indiv-employee-details-header').querySelector('p:first-child').textContent.split('Designation: ')[1].split(',')[0].trim();
-            const excelTotalLeave = indivTotalLeaveCountEl.textContent; // Renamed variable
+            const indivExcelTotalLeave = indivTotalLeaveCountEl.textContent; // Renamed variable for clarity
 
             const ws_data = [
                 [`Individual Attendance Records for ${employeeName}`],
@@ -1520,7 +1558,7 @@
             if (showTimes) {
                 headers.push("Afternoon Time");
             }
-            headers.push("Status", "Late?");
+            headers.push("Status", "Late?", "Sunday Work"); // Add Sunday Work header
 
             ws_data.push(headers);
 
@@ -1538,22 +1576,23 @@
                 }
                 rowData.push(record.overallStatus);
                 rowData.push(record.lateIndicator || '-');
+                rowData.push(record.sundayWork ? 'Yes' : 'No'); // Add Sunday Work to Excel
                 ws_data.push(rowData);
             });
 
-            const fullDays = indivFullDays.textContent;
-            const halfDays = indivHalfDays.textContent;
-            const absentDays = indivAbsentDays.textContent;
-            const lateDays = indivLateDays.textContent;
+            const indivExcelFullDays = indivFullDays.textContent;
+            const indivExcelHalfDays = indivHalfDays.textContent;
+            const indivExcelAbsentDays = indivAbsentDays.textContent;
+            const indivExcelLateDays = indivLateDays.textContent;
 
 
             ws_data.push([]);
             ws_data.push(["Summary:"]);
-            ws_data.push([`Total Full Days: ${fullDays}`]);
-            ws_data.push([`Total Half Days: ${halfDays}`]);
-            ws_data.push([`Total Absent Days: ${absentDays}`]);
-            ws_data.push([`Total Late Days: ${lateDays}`]);
-            ws_data.push([`Total Leave Taken: ${excelTotalLeave}`]); // Using renamed variable
+            ws_data.push([`Total Full Days: ${indivExcelFullDays}`]);
+            ws_data.push([`Total Half Days: ${indivExcelHalfDays}`]);
+            ws_data.push([`Total Absent Days: ${indivExcelAbsentDays}`]);
+            ws_data.push([`Total Late Days: ${indivExcelLateDays}`]);
+            ws_data.push([`Total Leave Taken: ${indivExcelTotalLeave}`]);
 
 
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
@@ -1835,8 +1874,9 @@
                     if (currentEmployeeUid) {
                         const userProfileSnap = await get(ref(db, `users/${currentEmployeeUid}`));
                         const userProfileData = userProfileSnap.val();
-                        if (userProfileData && userProfileData.deviceId) {
-                            deviceIdDisplay.textContent = userProfileData.deviceId;
+                        // Changed from deviceId to boundDevice
+                        if (userProfileData && userProfileData.boundDevice) {
+                            deviceIdDisplay.textContent = userProfileData.boundDevice;
                             resetDeviceIdBtn.classList.remove('hidden');
                         } else {
                             deviceIdDisplay.textContent = "N/A";
@@ -1908,8 +1948,9 @@
                     currentEmployeeUid = employeeData.uid || null;
 
                     // Display Device ID and show reset button if applicable
-                    if (employeeData.deviceId) {
-                        deviceIdDisplay.textContent = employeeData.deviceId;
+                    // Changed from deviceId to boundDevice
+                    if (employeeData.boundDevice) {
+                        deviceIdDisplay.textContent = employeeData.boundDevice;
                         resetDeviceIdBtn.classList.remove('hidden');
                     } else {
                         deviceIdDisplay.textContent = "N/A";
@@ -1949,7 +1990,7 @@
                 showLoadingModal("Resetting Device ID...");
                 try {
                     const userRef = ref(db, `users/${currentEmployeeUid}`);
-                    await update(userRef, { deviceId: null }); // Set to null to remove the field
+                    await update(userRef, { boundDevice: null }); // Set to null to remove the field
 
                     // Log activity
                     const activityLogsRef = ref(db, `activityLogs/${getNow().toISOString().split('T')[0]}`);
@@ -2373,7 +2414,7 @@
                     branchesHtml += `
                         <div class="bg-gray-50 p-4 rounded-lg shadow-sm mb-4 border border-gray-200">
                             <div class="flex justify-between items-center mb-2">
-                                <h4 class="text-lg font-semibold text-gray-800">${branchLabel} (${branchDetails.lat}, ${branchDetails.lng}, ${branchDetails.radius}km)</h4>
+                                <h4 class="text-lg font-semibold text-gray-800">${branchLabel} (${branchDetails.latitude}, ${branchDetails.longitude}, ${branchDetails.radius}km)</h4>
                                 <button class="delete-branch-btn bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm" data-branch-name="${branchName}">Delete Branch</button>
                             </div>
                             <p class="text-sm text-gray-600 mb-2">Subdivisions:</p>
@@ -2446,8 +2487,8 @@
                     }
 
                     await set(branchRef, {
-                        lat: lat,
-                        lng: lng,
+                        latitude: lat, // Changed to latitude
+                        longitude: lng, // Changed to longitude
                         radius: radius,
                         subdivisions: {} // Initialize with empty subdivisions
                     });
@@ -3343,6 +3384,7 @@
                                 <th class="border px-4 py-2">Enter/Leave Time</th>
                                 <th class="border px-4 py-2">Status</th>
                                 <th class="border px-4 py-2">Late?</th>
+                                <th class="border px-4 py-2">Sunday Work</th> <!-- New Header -->
                             </tr>
                         </thead>
                         <tbody id="records-table-body">
@@ -3460,6 +3502,7 @@
                                 <th class="border px-4 py-2 indiv-time-col">Enter/Leave Time</th>
                                 <th class="border px-4 py-2">Status</th>
                                 <th class="border px-4 py-2">Late?</th>
+                                <th class="border px-4 py-2">Sunday Work</th> <!-- New Header -->
                             </tr>
                         </thead>
                         <tbody id="indiv-table-body">
