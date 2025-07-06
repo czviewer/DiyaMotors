@@ -205,10 +205,14 @@
 
 
         // Load header.html and set up its specific event listeners
-        fetch("header.html")
-            .then(response => response.text())
-            .then(data => {
-                document.getElementById("header-container").innerHTML = data;
+        // Use content_fetcher to get header.html content
+        window.onload = async () => {
+            try {
+                const headerContent = await content_fetcher.fetch(
+                    "header.html", // Query can be the file name
+                    [{ id: "uploaded:admin.html", type: "text/html" }] // Reference to the uploaded file
+                );
+                document.getElementById("header-container").innerHTML = headerContent;
 
                 // Update user badge in header
                 const userBadgeEl = document.getElementById('user-badge');
@@ -297,8 +301,10 @@
                         if (activityLogsBtn) activityLogsBtn.style.display = 'none'; // Hide on error
                     }
                 });
-            })
-            .catch(error => console.error("Error loading header:", error));
+            } catch (error) {
+                console.error("Error loading header:", error);
+            }
+        };
 
         // Helper to format time (handles "HH:MM:SS am/pm" or "HH:MM:SS")
         function formatTime(timeString) {
@@ -728,7 +734,7 @@
             const halfDays = recordsHalfDays.textContent;
             const absentDays = recordsAbsentDays.textContent;
             const lateDays = recordsLateDays.textContent;
-            const totalLeaveValue = recordsTotalLeaveCountEl.textContent; // Renamed to avoid conflict
+            const pdfTotalLeave = recordsTotalLeaveCountEl.textContent; // Renamed to avoid conflict
 
             let finalY = doc.autoTable.previous.finalY;
             doc.setFontSize(10);
@@ -737,7 +743,7 @@
             doc.text(`Total Half Days: ${halfDays}`, 14, finalY + 20);
             doc.text(`Total Absent Days: ${absentDays}`, 14, finalY + 25);
             doc.text(`Total Late Days: ${lateDays}`, 14, finalY + 30);
-            doc.text(`Total Leave Taken: ${totalLeaveValue}`, 14, finalY + 35); // Using renamed variable
+            doc.text(`Total Leave Taken: ${pdfTotalLeave}`, 14, finalY + 35); // Using renamed variable
 
 
             doc.save("Employee_Records_Report.pdf");
@@ -776,7 +782,7 @@
             const halfDays = recordsHalfDays.textContent;
             const absentDays = recordsAbsentDays.textContent;
             const lateDays = recordsLateDays.textContent;
-            const totalLeaveValue = recordsTotalLeaveCountEl.textContent; // Renamed to avoid conflict
+            const excelTotalLeave = recordsTotalLeaveCountEl.textContent; // Renamed to avoid conflict
 
             ws_data.push([]);
             ws_data.push(["Summary:"]);
@@ -784,7 +790,7 @@
             ws_data.push([`Total Half Days: ${halfDays}`]);
             ws_data.push([`Total Absent Days: ${absentDays}`]);
             ws_data.push([`Total Late Days: ${lateDays}`]);
-            ws_data.push([`Total Leave Taken: ${totalLeaveValue}`]); // Using renamed variable
+            ws_data.push([`Total Leave Taken: ${excelTotalLeave}`]); // Using renamed variable
 
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
@@ -3102,18 +3108,6 @@
     .user-badge-branch {
         background-color: #28a745;
         border-left: 4px solid #2e7d32;
-    }
-
-    .top-bar-dev {
-        background-color: #5e35b1;
-    }
-
-    .top-bar-admin {
-        background-color: #3f0e0e00;
-    }
-
-    .top-bar-branch {
-        background-color: #2e7d32;
     }
 
     .logo {
