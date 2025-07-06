@@ -9,7 +9,7 @@
     <!-- Firebase Modular SDK v10+ imports -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
         import { getDatabase, ref, get, set, update, remove, push } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js'; // Ensure 'push' is imported
 
         const firebaseConfig = {
@@ -204,22 +204,80 @@
         });
 
 
-        // Load header.html and set up its specific event listeners
-        // Use content_fetcher to get header.html content
-        window.onload = async () => {
-            try {
-                const headerContent = await content_fetcher.fetch(
-                    "header.html", // Query can be the file name
-                    [{ id: "uploaded:admin.html", type: "text/html" }] // Reference to the uploaded file
-                );
-                document.getElementById("header-container").innerHTML = headerContent;
+        // Auth and Role Logic for dropdowns
+        onAuthStateChanged(auth, async user => {
+            // --- START TEMPORARY ROLE ASSIGNMENT FOR TESTING ---
+            // If no user is signed in, sign in anonymously and assign a 'Dev' role for testing purposes.
+            // In a production environment, you would remove this block and rely on actual user login.
+            if (!user) {
+                try {
+                    await signInAnonymously(auth);
+                    user = auth.currentUser; // Get the newly signed-in anonymous user
+                    // Force 'Dev' role for anonymous user for testing admin panel
+                    currentUserRole = 'Dev';
+                    currentUserName = 'Test Dev User';
+                    console.warn("⚠️ Signed in anonymously and assigned 'Dev' role for testing. Remove this for production.");
+                } catch (error) {
+                    console.error("Error signing in anonymously:", error);
+                    window.location.href = "index.html"; // Redirect to login if even anonymous fails
+                    return;
+                }
+            }
+            // --- END TEMPORARY ROLE ASSIGNMENT FOR TESTING ---
+
+            // If a user is now available (either logged in or anonymously signed in)
+            if (user) {
+                // Fetch user role and name from DB if not already set by temporary assignment
+                if (!currentUserRole || !currentUserName) {
+                    try {
+                        const userRoleSnap = await get(ref(db, `users/${user.uid}/role`));
+                        currentUserRole = userRoleSnap.val();
+                        const userNameSnap = await get(ref(db, `users/${user.uid}/name`));
+                        currentUserName = userNameSnap.val() || user.email || user.uid;
+                    } catch (error) {
+                        console.error("Error fetching user role:", error);
+                        currentUserRole = 'user'; // Default to user if error
+                        currentUserName = user.email || user.uid;
+                    }
+                }
 
                 // Update user badge in header
                 const userBadgeEl = document.getElementById('user-badge');
                 const userNameEl = document.getElementById('user-name');
                 const branchInfoEl = document.getElementById('branch-info');
-                const logoutBtn = document.getElementById('logout-btn'); // Get logout button
-                const activityLogsBtn = document.getElementById('activity-logs-btn'); // Get the new Activity Logs button
+                const logoutBtn = document.getElementById('logout-btn');
+                const activityLogsBtn = document.getElementById('activity-logs-btn');
+
+                if (userNameEl) userNameEl.textContent = currentUserName;
+                if (branchInfoEl) branchInfoEl.textContent = currentUserRole;
+                if (userBadgeEl) {
+                    userBadgeEl.classList.remove('user-badge-dev', 'user-badge-admin', 'user-badge-branch');
+                    if (currentUserRole === 'Dev') {
+                        userBadgeEl.classList.add('user-badge-dev');
+                    } else if (currentUserRole === 'Admin') {
+                        userBadgeEl.classList.add('user-badge-admin');
+                    } else if (currentUserRole === 'Branch') {
+                        userBadgeEl.classList.add('user-badge-branch');
+                    }
+                }
+
+                // Hide edit tab if not Admin/Dev
+                if (currentUserRole !== 'Admin' && currentUserRole !== 'Dev') {
+                    editTabButton.classList.add('hidden');
+                    branchManagementTabButton.classList.add('hidden');
+                } else {
+                    editTabButton.classList.remove('hidden');
+                    branchManagementTabButton.classList.remove('hidden');
+                }
+
+                // Show/hide Activity Logs button based on role
+                if (activityLogsBtn) {
+                    if (currentUserRole === 'Admin' || currentUserRole === 'Dev') {
+                        activityLogsBtn.style.display = 'block';
+                    } else {
+                        activityLogsBtn.style.display = 'none';
+                    }
+                }
 
                 // Logout button logic
                 if (logoutBtn) {
@@ -245,66 +303,12 @@
                     });
                 }
 
-                // Auth and Role Logic for dropdowns
-                onAuthStateChanged(auth, async user => {
-                    if (!user) {
-                        // Redirect to login if not authenticated
-                        window.location.href = "index.html";
-                        return;
-                    }
-
-                    // Fetch user role and name
-                    try {
-                        const userRoleSnap = await get(ref(db, `users/${user.uid}/role`));
-                        currentUserRole = userRoleSnap.val();
-                        const userNameSnap = await get(ref(db, `users/${user.uid}/name`));
-                        currentUserName = userNameSnap.val() || user.email || user.uid;
-
-                        // Update user badge
-                        if (userNameEl) userNameEl.textContent = currentUserName;
-                        if (branchInfoEl) branchInfoEl.textContent = currentUserRole;
-                        if (userBadgeEl) {
-                            userBadgeEl.classList.remove('user-badge-dev', 'user-badge-admin', 'user-badge-branch');
-                            if (currentUserRole === 'Dev') {
-                                userBadgeEl.classList.add('user-badge-dev');
-                            } else if (currentUserRole === 'Admin') {
-                                userBadgeEl.classList.add('user-badge-admin');
-                            } else if (currentUserRole === 'Branch') {
-                                userBadgeEl.classList.add('user-badge-branch');
-                            }
-                        }
-
-
-                        // Hide edit tab if not Admin/Dev
-                        if (currentUserRole !== 'Admin' && currentUserRole !== 'Dev') { // Corrected roles
-                            editTabButton.classList.add('hidden'); // Hide the button
-                            branchManagementTabButton.classList.add('hidden'); // Hide branch management button too
-                        } else {
-                            editTabButton.classList.remove('hidden'); // Ensure button is visible for authorized users
-                            branchManagementTabButton.classList.remove('hidden'); // Ensure branch management button is visible
-                        }
-
-                        // Show/hide Activity Logs button based on role
-                        if (activityLogsBtn) {
-                            if (currentUserRole === 'Admin' || currentUserRole === 'Dev') {
-                                activityLogsBtn.style.display = 'block'; // Show the button
-                            } else {
-                                activityLogsBtn.style.display = 'none'; // Hide the button
-                            }
-                        }
-
-                    } catch (error) {
-                        console.error("Error fetching user role:", error);
-                        currentUserRole = 'user'; // Default to user if error
-                        editTabButton.classList.add('hidden'); // Hide on error
-                        branchManagementTabButton.classList.add('hidden'); // Hide on error
-                        if (activityLogsBtn) activityLogsBtn.style.display = 'none'; // Hide on error
-                    }
-                });
-            } catch (error) {
-                console.error("Error loading header:", error);
+            } else {
+                // Should ideally not be reached due to anonymous sign-in, but as a fallback
+                window.location.href = "index.html";
             }
-        };
+        });
+
 
         // Helper to format time (handles "HH:MM:SS am/pm" or "HH:MM:SS")
         function formatTime(timeString) {
@@ -877,7 +881,7 @@
             }
         }
 
-        // Populate Subdivision dropdown based on Branch selection
+        // When Branch is selected for Individual Records Tab, populate Subdivision
         indivBranchDropdown.addEventListener("change", async () => {
             const selectedBranch = indivBranchDropdown.value;
             indivSubdivisionDropdown.innerHTML = `<option value="All">All Subdivisions</option>`;
@@ -1632,12 +1636,12 @@
 
                 usersSnapshot.forEach(userSnap => {
                     const userData = userSnap.val();
-                    if (userData.id === empId) {
+                    if (userData.id === empId) { // Check against 'id' field, not 'empId'
                         foundEmployee = userData;
                         foundUid = userSnap.key; // Get the UID
                         return true; // Break forEach
-                    }
-                });
+                            }
+                        });
 
                 if (foundEmployee) {
                     // Also fetch their detailed employee data from branches/specialEmployees
@@ -2869,6 +2873,10 @@
             });
         });
 
+        // Call populateBranchesAndSubdivisions on window load to ensure the initial list is rendered
+        window.onload = function() {
+            populateBranchesAndSubdivisions();
+        };
 
     </script>
 </head>
@@ -3253,7 +3261,30 @@
 
 <body class="bg-gray-100 min-h-screen">
 
-    <div id="header-container"></div>
+    <!-- Embedded Header Content -->
+    <div id="header-container">
+        <header class="bg-blue-800 text-white p-4 flex justify-between items-center shadow-md">
+            <div class="logo-section flex items-center">
+                <img src="https://placehold.co/60x60/003366/FFFFFF?text=Logo" alt="Logo" class="logo-img rounded-full">
+                <span class="app-name text-2xl font-bold">AbsentEase Admin</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="clock-container text-lg" id="live-clock">
+                    Loading Time...
+                </div>
+                <div id="user-badge" class="user-badge-admin rounded-lg px-3 py-2 text-white">
+                    <span id="user-name" class="font-semibold">Loading User...</span><br>
+                    <span id="branch-info" class="text-sm">Loading Role...</span>
+                </div>
+                <button id="activity-logs-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md hidden">
+                    Activity Logs
+                </button>
+                <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md">
+                    Logout
+                </button>
+            </div>
+        </header>
+    </div>
 
 
     <div class="container mx-auto px-4 py-6">
