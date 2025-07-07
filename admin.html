@@ -246,7 +246,7 @@
                 const userNameEl = document.getElementById('user-name');
                 const branchInfoEl = document.getElementById('branch-info');
                 const logoutBtn = document.getElementById('logout-btn');
-                const adminPanelBtn = document.getElementById('admin-panel-btn'); // Get admin panel button
+                const homeScreenBtn = document.getElementById('home-screen-btn');// Get admin panel button
                 const activityLogsBtn = document.getElementById('activity-logs-btn');
                 const topBar = document.getElementById('top-bar'); // Get the top-bar element
 
@@ -276,11 +276,11 @@
                 }
 
                 // Show/hide Admin Panel button (it's already hidden by default in header.html, but ensure logic)
-                if (adminPanelBtn) {
+                if (homeScreenBtn) {
                     if (currentUserRole === 'Admin' || currentUserRole === 'Dev') {
-                        adminPanelBtn.style.display = 'inline-block';
+                        homeScreenBtn.style.display = 'inline-block';
                     } else {
-                        adminPanelBtn.style.display = 'none';
+                        homeScreenBtn.style.display = 'none';
                     }
                 }
 
@@ -319,7 +319,12 @@
                         });
                     });
                 }
-
+                // Home Screen button logic (newly added)
+                if (homeScreenBtn) {
+                    homeScreenBtn.addEventListener('click', () => {
+                        window.location.href = 'index.html'; // Redirect to the home screen
+                    });
+                }
                 // Activity Logs button logic
                 if (activityLogsBtn) {
                     activityLogsBtn.addEventListener('click', () => {
@@ -1457,7 +1462,7 @@
                 pdfHeaders.push("Afternoon Time");
             }
             pdfHeaders.push("Status", "Late?", "Sunday Work"); // Add Sunday Work header
-            
+
             const pdfBody = [];
             currentIndividualRecords.forEach(record => {
                 const rowData = [
@@ -1703,8 +1708,8 @@
                         foundEmployee = userData;
                         foundUid = userSnap.key; // Get the UID
                         return true; // Break forEach
-                            }
-                        });
+                    }
+                });
 
                 if (foundEmployee) {
                     // Also fetch their detailed employee data from branches/specialEmployees
@@ -2939,7 +2944,7 @@
         });
 
         // Call populateBranchesAndSubdivisions on window load to ensure the initial list is rendered
-        window.onload = function() {
+        window.onload = function () {
             populateBranchesAndSubdivisions();
         };
 
@@ -2978,13 +2983,15 @@
     .top-bar .app-name {
         font-size: 26px;
         font-weight: bold;
-        color: #333; /* Default color for app name in top-bar */
+        color: #333;
+        /* Default color for app name in top-bar */
     }
 
     .top-bar .clock-container {
         font-size: 18px;
         font-weight: bold;
-        color: #333; /* Default color for clock in top-bar */
+        color: #333;
+        /* Default color for clock in top-bar */
     }
 
     .top-bar .user-section {
@@ -3003,7 +3010,8 @@
         text-align: center;
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
         min-width: 150px;
-        background-color: #010d18; /* Dark background for user badge */
+        background-color: #010d18;
+        /* Dark background for user badge */
         border-left: 4px solid transparent;
     }
 
@@ -3310,9 +3318,12 @@
                 <div id="user-name">Loading...</div>
                 <div id="branch-info"></div>
             </div>
-            <button id="admin-panel-btn" class="btn" style="display: none;">Admin Panel</button>
+            <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                id="home-screen-btn" style="display: none;">Home Screen</button>
             <!-- New Activity Logs Button -->
-            <button id="activity-logs-btn" class="btn bg-yellow-500 text-black px-4 py-2 rounded hover:bg-yellow-600 transition" style="display: none;">Activity Logs</button>
+            <button id="activity-logs-btn"
+                class="btn bg-yellow-500 text-black px-4 py-2 rounded hover:bg-yellow-600 transition"
+                style="display: none;">Activity Logs</button>
             <button id="logout-btn" class="btn">Logout</button>
         </div>
     </div>
@@ -3397,10 +3408,13 @@
                     <p class="text-lg font-semibold text-gray-800">Summary:</p>
                     <ul class="list-disc list-inside ml-4">
                         <li>Total Full Days: <span id="records-full-days" class="font-bold text-green-600">0</span></li>
-                        <li>Total Half Days: <span id="records-half-days" class="font-bold text-orange-600">0</span></li>
-                        <li>Total Absent Days: <span id="records-absent-days" class="font-bold text-red-600">0</span></li>
+                        <li>Total Half Days: <span id="records-half-days" class="font-bold text-orange-600">0</span>
+                        </li>
+                        <li>Total Absent Days: <span id="records-absent-days" class="font-bold text-red-600">0</span>
+                        </li>
                         <li>Total Late Days: <span id="records-late-days" class="font-bold text-red-600">0</span></li>
-                        <li>Total Leave Taken: <span id="records-total-leave-count" class="font-bold text-blue-600">0 Days</span></li>
+                        <li>Total Leave Taken: <span id="records-total-leave-count" class="font-bold text-blue-600">0
+                                Days</span></li>
                     </ul>
                 </div>
 
@@ -3421,8 +3435,10 @@
                     <div class="flex-grow">
                         <label class="block text-sm font-medium text-gray-700">Search by Employee ID</label>
                         <div class="flex gap-2">
-                            <input type="text" id="search-by-id-input" class="form-input border rounded px-3 py-2 w-full" placeholder="Enter Employee ID">
-                            <button id="search-by-id-btn" class="bg-blue-600 text-white px-4 py-2 rounded font-medium">Search</button>
+                            <input type="text" id="search-by-id-input"
+                                class="form-input border rounded px-3 py-2 w-full" placeholder="Enter Employee ID">
+                            <button id="search-by-id-btn"
+                                class="bg-blue-600 text-white px-4 py-2 rounded font-medium">Search</button>
                         </div>
                     </div>
                 </div>
@@ -3566,8 +3582,8 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Designation <span
                                     class="text-red-500">*</span></label>
-                            <input type="text" id="add-employee-designation" class="form-input border rounded px-3 py-2 w-full"
-                                placeholder="e.g., Sales Executive">
+                            <input type="text" id="add-employee-designation"
+                                class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., Sales Executive">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Phone (Optional)</label>
@@ -3617,8 +3633,11 @@
                         <div class="col-span-full mb-4">
                             <label class="block text-sm font-medium text-gray-700">Search Employee by ID</label>
                             <div class="flex gap-2">
-                                <input type="text" id="search-employee-id-input" class="form-input border rounded px-3 py-2 w-full" placeholder="Enter Employee ID to search">
-                                <button id="search-employee-id-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Search</button>
+                                <input type="text" id="search-employee-id-input"
+                                    class="form-input border rounded px-3 py-2 w-full"
+                                    placeholder="Enter Employee ID to search">
+                                <button id="search-employee-id-btn"
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Search</button>
                             </div>
                         </div>
 
@@ -3671,10 +3690,12 @@
                                 class="form-input border rounded px-3 py-2 w-full" placeholder="Enter email address">
                         </div>
                         <!-- Device ID Display and Reset Button -->
-                        <div class="col-span-full flex flex-col sm:flex-row items-center gap-4 mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                        <div
+                            class="col-span-full flex flex-col sm:flex-row items-center gap-4 mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
                             <p class="text-sm font-medium text-gray-700">Device ID:</p>
                             <span id="device-id-display" class="font-bold text-gray-800 flex-grow">N/A</span>
-                            <button id="reset-device-id-btn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded font-medium hidden">
+                            <button id="reset-device-id-btn"
+                                class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded font-medium hidden">
                                 Reset Device ID
                             </button>
                         </div>
@@ -3737,23 +3758,32 @@
                     <h3 class="text-md font-semibold mb-3">Create New Branch</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Branch Name <span class="text-red-500">*</span></label>
-                            <input type="text" id="create-branch-name" class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., Chennai">
+                            <label class="block text-sm font-medium text-gray-700">Branch Name <span
+                                    class="text-red-500">*</span></label>
+                            <input type="text" id="create-branch-name"
+                                class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., Chennai">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Latitude <span class="text-red-500">*</span></label>
-                            <input type="number" step="any" id="create-branch-lat" class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., 12.99">
+                            <label class="block text-sm font-medium text-gray-700">Latitude <span
+                                    class="text-red-500">*</span></label>
+                            <input type="number" step="any" id="create-branch-lat"
+                                class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., 12.99">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Longitude <span class="text-red-500">*</span></label>
-                            <input type="number" step="any" id="create-branch-lng" class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., 80.2">
+                            <label class="block text-sm font-medium text-gray-700">Longitude <span
+                                    class="text-red-500">*</span></label>
+                            <input type="number" step="any" id="create-branch-lng"
+                                class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., 80.2">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Radius (km) <span class="text-red-500">*</span></label>
-                            <input type="number" step="0.1" id="create-branch-radius" class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., 0.5">
+                            <label class="block text-sm font-medium text-gray-700">Radius (km) <span
+                                    class="text-red-500">*</span></label>
+                            <input type="number" step="0.1" id="create-branch-radius"
+                                class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., 0.5">
                         </div>
                     </div>
-                    <button id="create-branch-btn" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium">
+                    <button id="create-branch-btn"
+                        class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium">
                         Create Branch
                     </button>
                 </div>
@@ -3763,17 +3793,21 @@
                     <h3 class="text-md font-semibold mb-3">Add Subdivision to Branch</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Select Branch <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700">Select Branch <span
+                                    class="text-red-500">*</span></label>
                             <select id="add-subdivision-branch" class="form-select border rounded px-3 py-2 w-full">
                                 <option value="">Select Branch</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Subdivision Name <span class="text-red-500">*</span></label>
-                            <input type="text" id="add-subdivision-name" class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., Sales">
+                            <label class="block text-sm font-medium text-gray-700">Subdivision Name <span
+                                    class="text-red-500">*</span></label>
+                            <input type="text" id="add-subdivision-name"
+                                class="form-input border rounded px-3 py-2 w-full" placeholder="e.g., Sales">
                         </div>
                     </div>
-                    <button id="add-subdivision-btn" class="mt-6 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium">
+                    <button id="add-subdivision-btn"
+                        class="mt-6 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium">
                         Add Subdivision
                     </button>
                 </div>
@@ -3789,10 +3823,14 @@
                             </select>
                         </div>
                         <div id="edit-branch-name-input-container" class="hidden">
-                            <label class="block text-sm font-medium text-gray-700">New Branch Name <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700">New Branch Name <span
+                                    class="text-red-500">*</span></label>
                             <div class="flex gap-2">
-                                <input type="text" id="edit-branch-name-input" class="form-input border rounded px-3 py-2 w-full" placeholder="Enter new branch name">
-                                <button id="save-branch-name-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Save</button>
+                                <input type="text" id="edit-branch-name-input"
+                                    class="form-input border rounded px-3 py-2 w-full"
+                                    placeholder="Enter new branch name">
+                                <button id="save-branch-name-btn"
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Save</button>
                             </div>
                         </div>
                     </div>
@@ -3804,21 +3842,27 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Select Branch</label>
-                            <select id="edit-subdivision-branch-dropdown" class="form-select border rounded px-3 py-2 w-full">
+                            <select id="edit-subdivision-branch-dropdown"
+                                class="form-select border rounded px-3 py-2 w-full">
                                 <option value="">Select Branch</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Select Subdivision</label>
-                            <select id="edit-subdivision-dropdown" class="form-select border rounded px-3 py-2 w-full" disabled>
+                            <select id="edit-subdivision-dropdown" class="form-select border rounded px-3 py-2 w-full"
+                                disabled>
                                 <option value="">Select Subdivision to Edit</option>
                             </select>
                         </div>
                         <div id="edit-subdivision-name-input-container" class="hidden col-span-full md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700">New Subdivision Name <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700">New Subdivision Name <span
+                                    class="text-red-500">*</span></label>
                             <div class="flex gap-2">
-                                <input type="text" id="edit-subdivision-name-input" class="form-input border rounded px-3 py-2 w-full" placeholder="Enter new subdivision name">
-                                <button id="save-subdivision-name-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Save</button>
+                                <input type="text" id="edit-subdivision-name-input"
+                                    class="form-input border rounded px-3 py-2 w-full"
+                                    placeholder="Enter new subdivision name">
+                                <button id="save-subdivision-name-btn"
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium">Save</button>
                             </div>
                         </div>
                     </div>
