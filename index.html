@@ -228,6 +228,8 @@
         #recaptcha-container {
             margin-top: 20px; /* Add some space above reCAPTCHA */
             /* Removed display: none; to make it visible */
+            display: flex; /* Use flex to center the reCAPTCHA widget if it's rendered by Google */
+            justify-content: center;
         }
 
         /* Responsive adjustments */
@@ -319,8 +321,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signInWithPhoneNumber, RecaptchaVerifier, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js"; // Updated import for Realtime Database
+        import { getAuth, signInWithEmailAndPassword, signInWithPhoneNumber, RecaptchaVerifier, signInWithCustomToken, signOut } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js"; // Added signOut
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js";
 
         // Firebase Configuration (Directly embedded from your provided details)
         const firebaseConfig = {
@@ -333,12 +335,11 @@
             appId: "1:455829653263:web:5a31c65bdab2b9cee0607a",
             measurementId: "G-DZYHPLQD3F"
         };
-        // Removed original const appId and initialAuthToken as they are not needed with direct config.
 
         // Firebase Initialization
         let app;
         let auth;
-        let db; // Changed from Firestore to Realtime Database
+        let db;
         let recaptchaVerifier;
         let confirmationResult; // To store the result of signInWithPhoneNumber
 
@@ -390,17 +391,12 @@
             try {
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
-                db = getDatabase(app); // Initialized Realtime Database
-
-                // Removed custom token and anonymous sign-in as per user's typical login flow
-                // This section might be re-added if anonymous access is still desired for specific use cases.
-                // For a typical email/password login flow, direct initialization is sufficient.
+                db = getDatabase(app); 
                 console.log('Firebase initialized.');
 
-                // Initialize reCAPTCHA verifier after Firebase is ready
-                // Set size to 'normal' for a visible reCAPTCHA v2 checkbox
+                // Initialize reCAPTCHA verifier for a visible v2 checkbox
                 recaptchaVerifier = new RecaptchaVerifier('recaptcha-container', {
-                    'size': 'normal', // Changed to 'normal' for visible reCAPTCHA v2
+                    'size': 'normal', // Changed to 'normal' for visible reCAPTCHA v2 checkbox
                     'callback': (response) => {
                         // reCAPTCHA solved, allow signInWithPhoneNumber.
                         console.log('reCAPTCHA solved:', response);
@@ -409,10 +405,12 @@
                         // reCAPTCHA expired, reset it or inform the user.
                         console.log('reCAPTCHA expired.');
                         showModal('reCAPTCHA expired. Please try again.');
+                        // Note: You might want to automatically re-render or reset reCAPTCHA here
                         setUIState(false, 'login'); // Re-enable login form
                     }
                 }, auth);
 
+                // Render the reCAPTCHA widget
                 recaptchaVerifier.render().catch(error => {
                     console.error("Error rendering reCAPTCHA:", error);
                     showModal("Failed to load security verification. Please refresh.");
@@ -443,11 +441,11 @@
                 // Fetch user's phone number from Realtime Database
                 const userId = user.uid;
                 // Path: users/{userId}/phone
-                const phoneNumberRef = ref(db, `users/${userId}/phone`); // Reference directly to the phone number node
-                const phoneNumberSnap = await get(phoneNumberRef); // Get a snapshot
+                const phoneNumberRef = ref(db, `users/${userId}/phone`);
+                const phoneNumberSnap = await get(phoneNumberRef);
 
                 if (phoneNumberSnap.exists()) {
-                    const phoneNumber = phoneNumberSnap.val(); // Get the phone number value
+                    const phoneNumber = phoneNumberSnap.val();
 
                     if (phoneNumber) {
                         console.log('Phone number found:', phoneNumber);
@@ -460,11 +458,13 @@
                         otpForm.style.display = 'block';
                         setUIState(false, 'otp'); // Hide loading for OTP form, enable OTP input
                     } else {
-                        showModal('Phone number not registered for this account.');
+                        showModal('Phone number not registered for this account. Please contact support.');
+                        await signOut(auth); // Sign out user if phone number is missing
                         setUIState(false, 'login'); // Re-enable login form
                     }
                 } else {
-                    showModal('User profile not found. Phone number not registered.');
+                    showModal('User profile not found or phone number not registered. Please contact support.');
+                    await signOut(auth); // Sign out user if profile not found
                     setUIState(false, 'login'); // Re-enable login form
                 }
 
@@ -513,20 +513,59 @@
             const otpCode = otpInput.value;
 
             try {
-                if (confirmationResult) {
-                    await confirmationResult.confirm(otpCode);
-                    console.log('OTP verified successfully!');
-
-                    // Save verified phone number to sessionStorage
-                    sessionStorage.setItem('verifiedPhoneNumber', auth.currentUser.phoneNumber);
-                    console.log('Phone number saved to sessionStorage.');
-
-                    // Redirect to home.html
-                    window.location.href = 'home.html';
-                } else {
-                    showModal('OTP verification session expired or not initiated. Please try logging in again.');
-                    setUIState(false, 'otp');
+                if (!confirmationResult) {
+                     showModal('OTP verification session expired or not initiated. Please try logging in again.');
+                     setUIState(false, 'otp');
+                     // Optionally redirect back to login form
+                     otpForm.style.display = 'none';
+                     loginForm.style.display = 'block';
+                     return;
                 }
+
+                await confirmationResult.confirm(otpCode);
+                console.log('OTP verified successfully!');
+
+                const user = auth.currentUser;
+                if (!user) {
+                    showModal('Authentication error after OTP. Please log in again.');
+                    await signOut(auth);
+                    setUIState(false, 'otp');
+                    return;
+                }
+
+                // --- Start Role Check ---
+                const userId = user.uid;
+                const userRoleRef = ref(db, `users/${userId}/role`); // Get user role from Realtime DB
+                const roleSnap = await get(userRoleRef);
+
+                if (roleSnap.exists()) {
+                    const userRole = roleSnap.val();
+                    console.log('Authenticated user role:', userRole);
+
+                    if (userRole === 'dev' || userRole === 'admin') {
+                        // User has required role, proceed to home screen
+                        sessionStorage.setItem('verifiedPhoneNumber', user.phoneNumber); // Save for home.html
+                        window.location.href = 'home.html';
+                    } else {
+                        // User does not have 'dev' or 'admin' role
+                        showModal('Access Denied: Your account does not have sufficient privileges (Dev or Admin role required).');
+                        await signOut(auth); // VERY IMPORTANT: Sign out unauthorized user
+                        setUIState(false, 'otp');
+                        // Redirect back to login form
+                        otpForm.style.display = 'none';
+                        loginForm.style.display = 'block';
+                    }
+                } else {
+                    // Role not found for this user
+                    showModal('Access Denied: User role not defined. Please contact support.');
+                    await signOut(auth); // VERY IMPORTANT: Sign out user
+                    setUIState(false, 'otp');
+                    // Redirect back to login form
+                    otpForm.style.display = 'none';
+                    loginForm.style.display = 'block';
+                }
+                // --- End Role Check ---
+
             } catch (error) {
                 console.error('OTP verification error:', error);
                 let errorMessageText = 'An unexpected error occurred during OTP verification.';
