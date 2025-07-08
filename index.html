@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Diya-Motors | Login</title>
-    <!-- Google Fonts - Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         /* Basic Reset & Body Styling */
@@ -225,9 +224,10 @@
             padding-bottom: 20px; /* Ensure footer is visible and not cut off */
         }
 
-        /* reCAPTCHA container styling - invisible reCAPTCHA */
+        /* reCAPTCHA container styling */
         #recaptcha-container {
-            display: none; /* This will be handled by Firebase, but keep it hidden */
+            margin-top: 20px; /* Add some space above reCAPTCHA */
+            /* Removed display: none; to make it visible */
         }
 
         /* Responsive adjustments */
@@ -272,12 +272,10 @@
 <body>
     <div class="container">
         <div class="logo">
-            <!-- Using a placeholder image for the logo. Replace with actual logo if available. -->
             <img src="https://placehold.co/150x50/007bff/ffffff?text=Diya+Motors" alt="Diya Motors Logo">
             <h1>Diya Motors</h1>
         </div>
 
-        <!-- Login Form -->
         <form id="login-form">
             <div class="form-group">
                 <label for="email">Email</label>
@@ -292,7 +290,6 @@
             <button type="submit" id="login-button">Login</button>
         </form>
 
-        <!-- OTP Verification Form (initially hidden) -->
         <form id="otp-form" style="display: none;">
             <p>An OTP has been sent to your registered phone number. Please enter it below.</p>
             <div class="form-group">
@@ -304,11 +301,9 @@
             <button type="submit" id="verify-otp-button">Verify OTP</button>
         </form>
 
-        <!-- reCAPTCHA container - Firebase will render here if needed -->
         <div id="recaptcha-container"></div>
     </div>
 
-    <!-- Error Modal -->
     <div id="error-modal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
@@ -322,15 +317,13 @@
         © 2025 Diya Motors
     </footer>
 
-    <!-- Firebase SDK CDN Imports (Modular v9) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js";
-       import { getAuth, signInWithEmailAndPassword, signInWithPhoneNumber, RecaptchaVerifier, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signInWithPhoneNumber, RecaptchaVerifier, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js"; // Updated import for Realtime Database
 
-        // Global variables provided by the Canvas environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-         const firebaseConfig = {
+        // Firebase Configuration (Directly embedded from your provided details)
+        const firebaseConfig = {
             apiKey: "AIzaSyBU3K7gRzqiqQt3o9thoEpd06ReLGVmm_w",
             authDomain: "diya-hero.firebaseapp.com",
             databaseURL: "https://diya-hero-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -340,13 +333,12 @@
             appId: "1:455829653263:web:5a31c65bdab2b9cee0607a",
             measurementId: "G-DZYHPLQD3F"
         };
-
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Removed original const appId and initialAuthToken as they are not needed with direct config.
 
         // Firebase Initialization
         let app;
         let auth;
-        let db;
+        let db; // Changed from Firestore to Realtime Database
         let recaptchaVerifier;
         let confirmationResult; // To store the result of signInWithPhoneNumber
 
@@ -398,21 +390,17 @@
             try {
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
-                db = getFirestore(app);
+                db = getDatabase(app); // Initialized Realtime Database
 
-                // Sign in with custom token if available, otherwise anonymously
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                    console.log('Signed in with custom token.');
-                } else {
-                    await signInAnonymously(auth);
-                    console.log('Signed in anonymously.');
-                }
+                // Removed custom token and anonymous sign-in as per user's typical login flow
+                // This section might be re-added if anonymous access is still desired for specific use cases.
+                // For a typical email/password login flow, direct initialization is sufficient.
+                console.log('Firebase initialized.');
 
                 // Initialize reCAPTCHA verifier after Firebase is ready
-                // Invisible reCAPTCHA is preferred
+                // Set size to 'normal' for a visible reCAPTCHA v2 checkbox
                 recaptchaVerifier = new RecaptchaVerifier('recaptcha-container', {
-                    'size': 'invisible',
+                    'size': 'normal', // Changed to 'normal' for visible reCAPTCHA v2
                     'callback': (response) => {
                         // reCAPTCHA solved, allow signInWithPhoneNumber.
                         console.log('reCAPTCHA solved:', response);
@@ -452,15 +440,14 @@
                 const user = userCredential.user;
                 console.log('User logged in:', user.uid);
 
-                // Fetch user's phone number from Firestore
+                // Fetch user's phone number from Realtime Database
                 const userId = user.uid;
-                // Path: /artifacts/{appId}/users/{userId}/profiles/user_profile
-                const userProfileRef = doc(db, `artifacts/${appId}/users/${userId}/profiles/user_profile`);
-                const userProfileSnap = await getDoc(userProfileRef);
+                // Path: users/{userId}/phone
+                const phoneNumberRef = ref(db, `users/${userId}/phone`); // Reference directly to the phone number node
+                const phoneNumberSnap = await get(phoneNumberRef); // Get a snapshot
 
-                if (userProfileSnap.exists()) {
-                    const userData = userProfileSnap.data();
-                    const phoneNumber = userData.phone;
+                if (phoneNumberSnap.exists()) {
+                    const phoneNumber = phoneNumberSnap.val(); // Get the phone number value
 
                     if (phoneNumber) {
                         console.log('Phone number found:', phoneNumber);
