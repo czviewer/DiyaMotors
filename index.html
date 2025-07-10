@@ -9,19 +9,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-    <link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#3b82f6" />
-<script>
-  // Register service worker
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(reg => console.log('SW registered ✅', reg.scope))
-        .catch(err => console.error('SW registration failed ❌', err));
-    });
-  }
-</script>
-
     <style>
         body {
             font-family: "Inter", sans-serif;
@@ -603,7 +590,7 @@
                         method: "OTP",
                         // ip: "client-ip-if-available" // IP capture requires Firebase Cloud Functions
                     });
-                   window.location.href = "admin.html/";
+                   window.location.href = "admin.html";
 
 
                 } else {
