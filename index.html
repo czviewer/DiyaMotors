@@ -524,37 +524,51 @@
                 return;
             }
 
-            if (!confirmationResult) {
+            if (!confirmationResult || !emailUID) {
                 showErrorMessage('Something went wrong. Please try logging in again.');
                 hideLoading(otpSpinner, verifyOtpBtn);
                 return;
             }
 
             try {
-                const phoneCred = firebase.auth.PhoneAuthProvider.credential(confirmationResult.verificationId, otp);
+                // ✅ Just confirm OTP — we don't use result.user or link anything
+                await confirmationResult.confirm(otp);
+                clearInterval(otpTimerInterval);
 
-                await auth.currentUser.linkWithCredential(phoneCred)
-                    .then(() => {
-                        console.log("✅ Phone number linked to email user:", emailUID);
-                        proceedToDashboard();
-                    })
-                    .catch(async (err) => {
-                        if (err.code === "auth/credential-already-in-use") {
-                            console.warn("⚠️ Already linked elsewhere. Re-signing with email...");
+                // ✅ Re-fetch user details using original email UID
+                const snap = await db.ref("users/" + emailUID).once("value");
+                const userData = snap.val();
 
-                            const email = emailInput.value.trim();
-                            const password = passwordInput.value.trim();
-                            await auth.signInWithEmailAndPassword(email, password);
-                            console.log("✅ Re-authenticated into original UID");
-                            proceedToDashboard();
-                        } else {
-                            console.error("❌ Linking error:", err);
-                            showErrorMessage("Failed to verify OTP: " + err.message);
-                        }
+                if (!userData) {
+                    showErrorMessage("Access denied. User data not found.");
+                    await auth.signOut();
+                    hideLoading(otpSpinner, verifyOtpBtn);
+                    return;
+                }
+
+                if (userData.role !== "Admin" && userData.role !== "Dev") {
+                    await db.ref(`reports/restrictedLogins/${emailUID}`).push({
+                        timestamp: new Date().toISOString(),
+                        attemptedRole: userData.role || "N/A",
+                        email: userData.email || '',
+                        browserInfo: navigator.userAgent
                     });
 
+                    showErrorMessage("Access Denied. Unauthorized role.");
+                    await auth.signOut();
+                    hideLoading(otpSpinner, verifyOtpBtn);
+                    return;
+                }
+
+                // ✅ Role verified, redirect accordingly
+                if (userData.role === "Admin") {
+                    window.location.href = "admin.html";
+                } else if (userData.role === "Dev") {
+                    window.location.href = "home.html";
+                }
+
             } catch (error) {
-                console.error("OTP verification fatal error:", error);
+                console.error("OTP verification error:", error);
                 let message = 'Invalid OTP. Please try again.';
                 if (error.code === 'auth/invalid-verification-code') {
                     message = 'The verification code is invalid.';
