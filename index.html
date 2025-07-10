@@ -229,13 +229,13 @@
     </div>
 
     <script>
-        // Firebase configuration - REPLACE WITH YOUR ACTUAL CONFIG
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBU3K7gRzqiqQt3o9thoEpd06ReLGVmm_w",
             authDomain: "diya-hero.firebaseapp.com",
             databaseURL: "https://diya-hero-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "diya-hero",
-            storageBucket: "diya-hero.firebasestorage.app",
+            storageBucket: "diya-hero.appspot.com",
             messagingSenderId: "455829653263",
             appId: "1:455829653263:web:5a31c65bdab2b9cee0607a",
             measurementId: "G-DZYHPLQD3F"
@@ -262,18 +262,28 @@
         const otpSpinner = document.getElementById('otp-spinner');
         const recaptchaContainer = document.getElementById('recaptcha-container');
 
+        // State variables
         let confirmationResult = null;
-        let userRole = null;
         let otpTimerInterval = null;
-        let emailUID = null; // To store original UID
+        let originalUserCredentials = { email: '', password: '' }; // Store original credentials securely
 
         const OTP_TIMEOUT_SECONDS = 60;
 
-
-        // --- Utility Functions ---
+        // --- Utility and Security Functions ---
 
         /**
-         * Shows an error message in the UI.
+         * Sanitizes input by removing potentially harmful characters.
+         * @param {string} str The input string.
+         * @returns {string} The sanitized string.
+         */
+        function sanitizeInput(str) {
+            const temp = document.createElement('div');
+            temp.textContent = str;
+            return temp.innerHTML;
+        }
+
+        /**
+         * Shows a generic error message in the UI.
          * @param {string} message The message to display.
          */
         function showErrorMessage(message) {
@@ -281,38 +291,26 @@
             errorMessage.classList.remove('hidden');
         }
 
-        /**
-         * Hides the error message.
-         */
+        /** Hides the error message. */
         function hideErrorMessage() {
             errorMessage.classList.add('hidden');
             errorMessage.textContent = '';
         }
 
         /**
-         * Shows a loading spinner and disables a button.
-         * @param {HTMLElement} spinnerElement The spinner element.
-         * @param {HTMLElement} buttonElement The button element to disable.
+         * Manages UI loading state.
+         * @param {boolean} isLoading - Whether to show or hide the loader.
+         * @param {HTMLElement} spinnerElement - The spinner element.
+         * @param {HTMLElement} buttonElement - The button to disable/enable.
          */
-        function showLoading(spinnerElement, buttonElement) {
-            spinnerElement.classList.remove('hidden');
-            buttonElement.disabled = true;
+        function setLoadingState(isLoading, spinnerElement, buttonElement) {
+            spinnerElement.classList.toggle('hidden', !isLoading);
+            buttonElement.disabled = isLoading;
         }
 
-        /**
-         * Hides a loading spinner and enables a button.
-         * @param {HTMLElement} spinnerElement The spinner element.
-         * @param {HTMLElement} buttonElement The button element to enable.
-         */
-        function hideLoading(spinnerElement, buttonElement) {
-            spinnerElement.classList.add('hidden');
-            buttonElement.disabled = false;
-        }
-
-        /**
-         * Starts the OTP resend timer.
-         */
+        /** Starts the OTP resend timer. */
         function startOtpTimer() {
+            clearInterval(otpTimerInterval); // Clear any existing timer
             let timeLeft = OTP_TIMEOUT_SECONDS;
             resendOtpBtn.disabled = true;
             otpTimerDisplay.textContent = `Resend OTP in ${timeLeft}s`;
@@ -322,162 +320,224 @@
                 otpTimerDisplay.textContent = `Resend OTP in ${timeLeft}s`;
                 if (timeLeft <= 0) {
                     clearInterval(otpTimerInterval);
-                    otpTimerDisplay.textContent = 'OTP expired.';
+                    otpTimerDisplay.textContent = 'You can now resend the OTP.';
                     resendOtpBtn.disabled = false;
                 }
             }, 1000);
         }
-
+        
         /**
-         * Gets the current timestamp in ISO format.
-         * @returns {string} Current timestamp.
+         * Cleans up the reCAPTCHA instance.
          */
-        function getTimestamp() {
-            return new Date().toISOString();
+        function resetRecaptcha() {
+            if (window.recaptchaVerifier) {
+                // Using grecaptcha.reset() is the official way to clear the widget
+                 window.recaptchaVerifier.render().then(function(widgetId) {
+                    grecaptcha.reset(widgetId);
+                });
+            }
         }
 
-        // --- Event Listeners ---
+        // --- Main Logic ---
 
-        // Login Button Click Handler
+        /**
+         * Initializes and renders the invisible reCAPTCHA verifier.
+         */
+        function initializeRecaptcha() {
+            // Ensure it's only initialized once
+            if (!window.recaptchaVerifier) {
+                window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(recaptchaContainer, {
+                    'size': 'invisible',
+                    'callback': (response) => {
+                        // reCAPTCHA solved. This is mainly for show, the real action is in sendOtp.
+                    },
+                    'expired-callback': () => {
+                        showErrorMessage('reCAPTCHA expired. Please try again.');
+                        setLoadingState(false, loginSpinner, loginBtn);
+                        resetRecaptcha();
+                    }
+                });
+                // Render it once to have it ready
+                window.recaptchaVerifier.render();
+            }
+        }
+        
+        // Initialize reCAPTCHA on page load.
+        document.addEventListener('DOMContentLoaded', initializeRecaptcha);
+
+
+        /**
+         * Handles the initial Email/Password login and triggers OTP flow.
+         */
         loginBtn.addEventListener('click', async () => {
             hideErrorMessage();
-            showLoading(loginSpinner, loginBtn);
+            setLoadingState(true, loginSpinner, loginBtn);
 
             const email = emailInput.value.trim();
-            const password = passwordInput.value.trim();
+            const password = passwordInput.value; // Don't trim password, spaces can be valid
 
+            // Basic validation
             if (!email || !password) {
                 showErrorMessage('Please enter both email and password.');
-                hideLoading(loginSpinner, loginBtn);
+                setLoadingState(false, loginSpinner, loginBtn);
                 return;
             }
+            
+            // Store credentials to re-authenticate after OTP check
+            originalUserCredentials = { email, password };
 
             try {
-                // Step 1: Authenticate user with email and password
+                // Step 1: Authenticate with email and password to verify credentials
                 const userCredential = await auth.signInWithEmailAndPassword(email, password);
                 const user = userCredential.user;
-                emailUID = user.uid; // ✅ Save it
 
-                // Step 2: Fetch user data from Realtime Database
+                // Step 2: Fetch user data (role, phone) from Realtime Database
                 const userRef = db.ref(`users/${user.uid}`);
                 const snapshot = await userRef.once('value');
                 const userData = snapshot.val();
 
-                if (!userData || (!userData.role || (userData.role !== 'Admin' && userData.role !== 'Dev'))) {
-                    // Access Denied: Unauthorized Role
-                    showErrorMessage('Access Denied. Unauthorized Role.');
-
-                    // Send report for restricted login attempt
-                    const reportsRef = db.ref(`reports/restrictedLogins/${user.uid}`);
-                    await reportsRef.push({
-                        timestamp: getTimestamp(),
-                        attemptedRole: userData ? userData.role : 'N/A',
-                        email: email,
-                        browserInfo: navigator.userAgent
-                    });
-
-                    await auth.signOut(); // Sign out the unauthorized user
-                    hideLoading(loginSpinner, loginBtn);
+                // Step 3: Security Check - Role and Phone Number must exist
+                if (!userData || !userData.role || !userData.phone) {
+                    showErrorMessage('Access Denied. Contact support.');
+                    await auth.signOut(); // Sign out invalid user
+                    setLoadingState(false, loginSpinner, loginBtn);
                     return;
                 }
 
-                userRole = userData.role; // Store the validated role
-                const phoneNumber = userData.phone; // Assuming 'phone' field exists in user data
-
-                if (!phoneNumber) {
-                    showErrorMessage('No phone number registered for this account. Please contact support.');
+                const { role, phone } = userData;
+                if (role !== 'Admin' && role !== 'Dev') {
+                    showErrorMessage('Access Denied. Unauthorized role.');
                     await auth.signOut();
-                    hideLoading(loginSpinner, loginBtn);
+                    setLoadingState(false, loginSpinner, loginBtn);
                     return;
                 }
 
-                // Initialize reCAPTCHA Verifier
-                window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(recaptchaContainer, {
-                    'size': 'invisible', // Invisible reCAPTCHA
-                    'callback': (response) => {
-                        // reCAPTCHA solved, now send OTP
-                        // This callback might not always fire immediately for invisible recaptcha
-                        // The explicit call after render() handles this.
-                    },
-                    'expired-callback': () => {
-                        showErrorMessage('reCAPTCHA expired. Please try again.');
-                        hideLoading(loginSpinner, loginBtn);
-                        // Optionally, re-render reCAPTCHA
-                        window.recaptchaVerifier.render().then(function (widgetId) {
-                            grecaptcha.reset(widgetId);
-                        });
-                    }
-                });
-
-                // Render reCAPTCHA and then explicitly call sendOtp
-                await window.recaptchaVerifier.render();
-                sendOtp(phoneNumber); // Explicitly call sendOtp after reCAPTCHA renders
+                // Step 4: Send OTP
+                await sendOtp(phone);
 
             } catch (error) {
-                console.error("Login error:", error);
-                let message = 'Login failed. Please check your credentials.';
-                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-                    message = 'Invalid email or password.';
-                } else if (error.code === 'auth/network-request-failed') {
-                    message = 'Network error. Please check your internet connection.';
-                } else if (error.code === 'auth/too-many-requests') {
-                    message = 'Too many failed login attempts. Please try again later.';
-                }
-                showErrorMessage(message);
-            } finally {
-                hideLoading(loginSpinner, loginBtn); // Ensure spinner is hidden in all cases
+                // Use generic error messages for security
+                showErrorMessage('Login failed. Please check your credentials.');
+                setLoadingState(false, loginSpinner, loginBtn);
             }
         });
 
         /**
-         * Sends OTP to the provided phone number.
+         * Sends OTP to the provided phone number using the initialized reCAPTCHA.
          * @param {string} phoneNumber The phone number to send OTP to.
          */
         async function sendOtp(phoneNumber) {
             try {
-                showLoading(loginSpinner, loginBtn); // Keep login spinner active during OTP send
-                emailPasswordSection.classList.add('hidden'); // Hide email/password section
-                otpSection.classList.remove('hidden'); // Show OTP section
+                const appVerifier = window.recaptchaVerifier;
+                confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, appVerifier);
 
-                // Firebase signInWithPhoneNumber
-                confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, window.recaptchaVerifier);
-
-                hideLoading(loginSpinner, loginBtn);
-                startOtpTimer(); // Start OTP timer
-                otpInputs[0].focus(); // Focus on first OTP input
-                showErrorMessage('OTP sent to your registered phone number.');
+                // Transition UI to OTP section
+                emailPasswordSection.classList.add('hidden');
+                otpSection.classList.remove('hidden');
+                setLoadingState(false, loginSpinner, loginBtn);
+                startOtpTimer();
+                otpInputs[0].focus();
 
             } catch (error) {
-                console.error("Error sending OTP:", error);
-                let message = 'Failed to send OTP. Please try again.';
-                if (error.code === 'auth/invalid-phone-number') {
-                    message = 'The provided phone number is invalid.';
-                } else if (error.code === 'auth/missing-phone-number') {
-                    message = 'Phone number is missing for this account.';
-                } else if (error.code === 'auth/quota-exceeded') {
-                    message = 'OTP sending quota exceeded. Please try again later.';
-                } else if (error.code === 'auth/captcha-check-failed') {
-                    message = 'reCAPTCHA verification failed. Please try again.';
-                }
-                showErrorMessage(message);
-                hideLoading(loginSpinner, loginBtn);
-                emailPasswordSection.classList.remove('hidden'); // Show email/password section again
-                otpSection.classList.add('hidden'); // Hide OTP section
-                // Reset reCAPTCHA if it failed
-                if (window.recaptchaVerifier && window.recaptchaVerifier.reset) {
-                    window.recaptchaVerifier.reset();
-                }
+                // If OTP sending fails, show error and revert UI
+                showErrorMessage('Failed to send OTP. Please try again.');
+                setLoadingState(false, loginSpinner, loginBtn);
+                emailPasswordSection.classList.remove('hidden');
+                otpSection.classList.add('hidden');
+                resetRecaptcha(); // Reset reCAPTCHA on failure
             }
         }
 
-        // OTP Input Navigation
+        /**
+         * SECURE OTP VERIFICATION FLOW
+         * This is the core of the security enhancement.
+         */
+        verifyOtpBtn.addEventListener('click', async () => {
+            hideErrorMessage();
+            setLoadingState(true, otpSpinner, verifyOtpBtn);
+
+            // 1. Sanitize and combine OTP input
+            const otpCode = otpInputs.map(input => sanitizeInput(input.value.trim())).join('');
+
+            if (otpCode.length !== 6 || !/^\d{6}$/.test(otpCode)) {
+                showErrorMessage('Please enter a valid 6-digit OTP.');
+                setLoadingState(false, otpSpinner, verifyOtpBtn);
+                return;
+            }
+
+            if (!confirmationResult) {
+                showErrorMessage('Verification session expired. Please log in again.');
+                setLoadingState(false, otpSpinner, verifyOtpBtn);
+                // Force a full page reload or redirect to reset state
+                window.location.reload();
+                return;
+            }
+            
+            let tempAuth;
+            try {
+                // 2. Create a credential object with the OTP.
+                const credential = firebase.auth.PhoneAuthProvider.credential(confirmationResult.verificationId, otpCode);
+
+                // 3. **CRITICAL**: Sign in with the credential to a *temporary, isolated auth instance*
+                // This validates the OTP without affecting the main user's session.
+                tempAuth = firebase.app().auth();
+                const tempUserCredential = await tempAuth.signInWithCredential(credential);
+                const verifiedPhoneNumber = tempUserCredential.user.phoneNumber;
+
+                // 4. **CRITICAL**: Immediately sign out the temporary user.
+                await tempAuth.signOut();
+
+                // 5. **CRITICAL**: Re-authenticate the original user to restore the correct session and UID.
+                const { email, password } = originalUserCredentials;
+                if (!email || !password) {
+                     showErrorMessage('Session error. Please log in again.');
+                     window.location.reload();
+                     return;
+                }
+                const mainUserCredential = await auth.signInWithEmailAndPassword(email, password);
+                const mainUser = mainUserCredential.user;
+
+                // 6. Fetch the phone number stored in the database for the *main user*.
+                const userRef = db.ref(`users/${mainUser.uid}`);
+                const snapshot = await userRef.once('value');
+                const userData = snapshot.val();
+                
+                // 7. **SECURITY CHECK**: Compare the OTP-verified number with the database number.
+                if (!userData || verifiedPhoneNumber !== userData.phone) {
+                    showErrorMessage('Security check failed. Access denied.');
+                    await auth.signOut(); // Ensure user is logged out
+                    setLoadingState(false, otpSpinner, verifyOtpBtn);
+                    return;
+                }
+                
+                // 8. Final Role Check & Redirect
+                if (userData.role === "Admin") {
+                    window.location.href = "admin.html";
+                } else if (userData.role === "Dev") {
+                    window.location.href = "home.html";
+                } else {
+                    showErrorMessage("Access Denied. Unauthorized role.");
+                    await auth.signOut();
+                }
+
+            } catch (error) {
+                // Generic error for invalid OTP or other issues
+                showErrorMessage("Invalid OTP or verification failed. Please try again.");
+                // Do not sign out here, allow user to retry OTP
+            } finally {
+                // Invalidate credentials after use for security
+                originalUserCredentials = { email: '', password: '' };
+                setLoadingState(false, otpSpinner, verifyOtpBtn);
+            }
+        });
+
+        // OTP Input Navigation & Resend Logic
         otpInputs.forEach((input, index) => {
             input.addEventListener('input', () => {
                 if (input.value.length === 1 && index < otpInputs.length - 1) {
                     otpInputs[index + 1].focus();
                 }
             });
-
             input.addEventListener('keydown', (event) => {
                 if (event.key === 'Backspace' && input.value.length === 0 && index > 0) {
                     otpInputs[index - 1].focus();
@@ -485,136 +545,37 @@
             });
         });
 
-        // Resend OTP Button Click Handler
         resendOtpBtn.addEventListener('click', async () => {
             hideErrorMessage();
-            const email = emailInput.value.trim();
+            resendOtpBtn.disabled = true; // Disable immediately
+            
+            // Re-use the login logic to get a fresh phone number and send OTP
+            // This ensures the user session is still valid.
+            const { email, password } = originalUserCredentials;
+             if (!email || !password) {
+                 showErrorMessage('Session error. Please log in again.');
+                 window.location.reload();
+                 return;
+            }
+
             try {
-                const userCredential = await auth.signInWithEmailAndPassword(email, passwordInput.value.trim());
-                const user = userCredential.user;
-                const userRef = db.ref(`users/${user.uid}`);
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const userRef = db.ref(`users/${userCredential.user.uid}`);
                 const snapshot = await userRef.once('value');
                 const userData = snapshot.val();
-                const phoneNumber = userData.phone;
 
-                if (window.recaptchaVerifier) {
-                    window.recaptchaVerifier.render().then(function (widgetId) {
-                        grecaptcha.reset(widgetId); // Reset reCAPTCHA for a new challenge
-                        sendOtp(phoneNumber); // Re-send OTP
-                    });
+                if (userData && userData.phone) {
+                    resetRecaptcha(); // Reset for a new attempt
+                    await sendOtp(userData.phone);
                 } else {
-                    // This case should ideally not happen if reCAPTCHA was initialized on first login attempt
-                    showErrorMessage('reCAPTCHA not initialized. Please try logging in again.');
+                    showErrorMessage('Could not retrieve phone number. Please log in again.');
                 }
             } catch (error) {
-                console.error("Error re-sending OTP:", error);
-                showErrorMessage('Failed to re-send OTP. Please try again.');
+                showErrorMessage('Failed to resend OTP. Please try again.');
+                resendOtpBtn.disabled = false; // Re-enable on failure
             }
         });
 
-        // Verify OTP Button Click Handler
-        verifyOtpBtn.addEventListener('click', async () => {
-            hideErrorMessage();
-            showLoading(otpSpinner, verifyOtpBtn);
-
-            const otp = otpInputs.map(input => input.value).join('');
-            if (otp.length !== 6) {
-                showErrorMessage('Please enter a 6-digit OTP.');
-                hideLoading(otpSpinner, verifyOtpBtn);
-                return;
-            }
-
-            if (!confirmationResult || !auth.currentUser) {
-                showErrorMessage('Session error. Please login again.');
-                hideLoading(otpSpinner, verifyOtpBtn);
-                return;
-            }
-
-            try {
-                // ✅ Create credential only (DON'T confirm, DON'T reauthenticate)
-                const phoneCred = firebase.auth.PhoneAuthProvider.credential(
-                    confirmationResult.verificationId,
-                    otp
-                );
-
-                // ✅ Get phone number stored for current email UID
-                const snapshot = await db.ref(`users/${auth.currentUser.uid}/phone`).once('value');
-                const storedPhone = snapshot.val();
-
-                if (!storedPhone) {
-                    showErrorMessage("No registered phone found. Contact support.");
-                    hideLoading(otpSpinner, verifyOtpBtn);
-                    return;
-                }
-
-                // ✅ Now test the credential with manual signIn
-                const testUser = await firebase.auth().signInWithCredential(phoneCred);
-                const verifiedPhone = testUser.user.phoneNumber;
-                await testUser.user.delete().catch(() => {
-                    // Optional: ignore error — might be blocked due to lack of credentials
-                });
-
-                // Immediately sign out this temp user
-                await firebase.auth().signOut();
-
-                // ✅ Re-sign in original email user
-                const email = emailInput.value.trim();
-                const password = passwordInput.value.trim();
-                const emailUser = await auth.signInWithEmailAndPassword(email, password);
-
-                if (verifiedPhone !== storedPhone) {
-                    showErrorMessage("OTP doesn't match your registered number.");
-                    await firebase.auth().signOut(); // Clean temp session
-                    hideLoading(otpSpinner, verifyOtpBtn);
-                    return;
-                }
-
-
-                console.log("✅ OTP matched for phone:", verifiedPhone);
-
-                // ✅ Role check & redirect
-                const roleSnap = await db.ref(`users/${emailUser.user.uid}/role`).once('value');
-                const role = roleSnap.val();
-
-                if (role === "Admin") {
-                    window.location.href = "admin.html";
-                } else if (role === "Dev") {
-                    window.location.href = "home.html";
-                } else {
-                    showErrorMessage("Access Denied. Unauthorized role.");
-                    await auth.signOut();
-                }
-
-            } catch (err) {
-                console.error("❌ OTP verification failed:", err);
-                showErrorMessage("Invalid OTP or expired session.");
-            } finally {
-                hideLoading(otpSpinner, verifyOtpBtn);
-            }
-        });
-
-
-        function proceedToDashboard() {
-            db.ref("users/" + auth.currentUser.uid).once("value").then((snap) => {
-                const userData = snap.val();
-                if (!userData || (userData.role !== "Admin" && userData.role !== "Dev")) {
-                    showErrorMessage("Access Denied. Unauthorized role.");
-                    return auth.signOut();
-                }
-
-                if (userData.role === "Admin") {
-                    window.location.href = "admin.html";
-                } else {
-                    window.location.href = "home.html";
-                }
-            });
-        }
-
-        // Ensure reCAPTCHA container is ready on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            // This is where reCAPTCHA will be rendered. It needs to be present in the DOM.
-            // The actual rendering happens when signInWithPhoneNumber is called.
-        });
     </script>
 </body>
 
