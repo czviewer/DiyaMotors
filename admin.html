@@ -449,7 +449,7 @@
             const selectedBranch = recordBranchDropdown.value;
             const selectedSubdivision = recordSubdivisionDropdown.value;
             const fromDateStr = document.getElementById("record-from").value;
-            const toDateStr = document.getElementById("record-to").value.value;
+            const toDateStr = document.getElementById("record-to").value; // Corrected: .value.value to .value
             const showTimes = document.getElementById("toggle-times").checked;
 
             recordsTableBody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">Loading records...</td></tr>';
@@ -2969,8 +2969,8 @@
         const sessionSubdivisionFilter = document.getElementById('session-subdivision-filter');
         const sessionActiveOnlyFilter = document.getElementById('session-active-only-filter');
         const sessionsTableBody = document.getElementById('sessions-table-body');
+        const refreshSessionsBtn = document.getElementById('refresh-sessions-btn'); // New refresh button
 
-        let allUsersData = {}; // Cache for all user data, including employee details
         let allBranchesAndSubdivisions = {}; // Cache for branches and subdivisions
         let sessionListener = null; // To hold the Firebase onValue listener
 
@@ -3016,69 +3016,82 @@
         sessionSubdivisionFilter.addEventListener('change', renderSessionsTable);
         sessionActiveOnlyFilter.addEventListener('change', renderSessionsTable);
 
+        // NEW: Event listener for Refresh button
+        if (refreshSessionsBtn) {
+            refreshSessionsBtn.addEventListener('click', () => {
+                showLoadingModal("Refreshing sessions...");
+                startListeningForSessions(); // Re-trigger the listener and data fetch
+            });
+        }
+
+
         // Function to start listening for real-time session data
         function startListeningForSessions() {
             // Detach any existing listener first
             stopListeningForSessions();
 
-            // Fetch all users once to get their employee IDs and details
-            get(ref(db, 'users')).then(usersSnapshot => {
-                allUsersData = {};
-                usersSnapshot.forEach(userChild => {
-                    const userData = userChild.val();
-                    const uid = userChild.key;
-                    allUsersData[uid] = {
-                        uid: uid,
-                        id: userData.id || 'N/A',
-                        name: userData.name || 'N/A',
-                        email: userData.email || 'N/A',
-                        branch: userData.branch || 'N/A',
-                        subdivision: userData.subdivision || 'N/A',
-                        role: userData.role || 'user',
-                        boundDevice: userData.boundDevice || 'N/A',
-                        ipAddress: userData.ipAddress || 'N/A',
-                        lastSeen: userData.lastSeen || 0,
-                        status: userData.status || 'inactive',
-                        terminate: userData.terminate || false // Flag for force logout
-                    };
-                });
-                // Once user data is loaded, set up the real-time listener for sessions
-                const sessionsRef = ref(db, 'sessions');
-                sessionListener = onValue(sessionsRef, (snapshot) => {
-                    const sessionsData = snapshot.val() || {};
-                    const combinedData = [];
-
-                    // Combine session data with user data
-                    for (const uid in allUsersData) {
-                        const userData = { ...allUsersData[uid] }; // Start with cached user data
-                        const session = sessionsData[uid];
-
-                        if (session) {
-                            userData.status = session.status || 'inactive';
-                            userData.lastSeen = session.lastSeen || userData.lastSeen;
-                            userData.deviceInfo = session.deviceInfo || 'N/A';
-                            userData.ipAddress = session.ipAddress || userData.ipAddress;
-                            userData.terminate = session.terminate || false; // Update terminate flag from session
-                        } else {
-                            // If no active session, ensure status is inactive
-                            userData.status = 'inactive';
-                            userData.deviceInfo = 'N/A';
-                            userData.terminate = false;
-                        }
-                        combinedData.push(userData);
-                    }
-                    renderSessionsTable(combinedData);
-                }, (error) => {
-                    console.error("Error listening to sessions:", error);
-                    sessionsTableBody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-red-500">Error loading sessions.</td></tr>';
-                });
-            }).catch(error => {
-                console.error("Error fetching initial user data for sessions:", error);
-                sessionsTableBody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-red-500">Error loading user data.</td></tr>';
-            });
-
-            // Populate filters once initially
+            // Populate filters initially (or refresh them)
             populateSessionFilters();
+
+            const sessionsRef = ref(db, 'sessions');
+            sessionListener = onValue(sessionsRef, async (sessionsSnapshot) => {
+                const sessionsData = sessionsSnapshot.val() || {};
+                const combinedData = [];
+
+                // Fetch all users data dynamically with each session update for freshness
+                let currentAllUsersData = {};
+                try {
+                    const usersSnapshot = await get(ref(db, 'users'));
+                    usersSnapshot.forEach(userChild => {
+                        const userData = userChild.val();
+                        const uid = userChild.key;
+                        currentAllUsersData[uid] = {
+                            uid: uid,
+                            id: userData.id || 'N/A',
+                            name: userData.name || 'N/A',
+                            email: userData.email || 'N/A',
+                            branch: userData.branch || 'N/A',
+                            subdivision: userData.subdivision || 'N/A',
+                            role: userData.role || 'user',
+                            boundDevice: userData.boundDevice || 'N/A'
+                        };
+                    });
+                } catch (error) {
+                    console.error("Error fetching user data during session update:", error);
+                    hideLoadingModal();
+                    sessionsTableBody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-red-500">Error loading user data.</td></tr>';
+                    return; // Stop processing if user data fetch fails
+                }
+
+
+                // Combine session data with fresh user data
+                for (const uid in currentAllUsersData) {
+                    const userData = { ...currentAllUsersData[uid] }; // Start with fresh user data
+                    const session = sessionsData[uid];
+
+                    if (session) {
+                        userData.status = session.status || 'inactive';
+                        userData.lastSeen = session.lastSeen || userData.lastSeen;
+                        userData.deviceInfo = session.deviceInfo || 'N/A';
+                        userData.ipAddress = session.ipAddress || userData.ipAddress;
+                        userData.terminate = session.terminate || false; // Update terminate flag from session
+                    } else {
+                        // If no active session, ensure status is inactive
+                        userData.status = 'inactive';
+                        userData.deviceInfo = 'N/A';
+                        userData.ipAddress = 'N/A';
+                        userData.lastSeen = 0; // Reset lastSeen if no session
+                        userData.terminate = false;
+                    }
+                    combinedData.push(userData);
+                }
+                renderSessionsTable(combinedData);
+                hideLoadingModal(); // Hide loading after rendering
+            }, (error) => {
+                console.error("Error listening to sessions:", error);
+                hideLoadingModal();
+                sessionsTableBody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-red-500">Error loading sessions.</td></tr>';
+            });
         }
 
         // Function to stop listening for real-time session data
@@ -3092,7 +3105,7 @@
 
         // Function to render the sessions table based on current data and filters
         function renderSessionsTable(data = null) {
-            const currentSessions = data || Object.values(allUsersData); // Use passed data or cached data
+            const currentSessions = data; // Data is now always passed directly from onValue listener
             const selectedBranch = sessionBranchFilter.value;
             const selectedSubdivision = sessionSubdivisionFilter.value;
             const showActiveOnly = sessionActiveOnlyFilter.checked;
@@ -4165,6 +4178,13 @@
                     <input type="checkbox" id="session-active-only-filter" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2">
                     <label for="session-active-only-filter" class="text-sm font-medium text-gray-700">Show Active Sessions Only</label>
                 </div>
+            </div>
+
+            <!-- Refresh Button for Sessions -->
+            <div class="mb-4 text-right">
+                <button id="refresh-sessions-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm">
+                    Refresh Sessions
+                </button>
             </div>
 
             <!-- Sessions Table -->
