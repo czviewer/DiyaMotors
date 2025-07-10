@@ -533,11 +533,25 @@
 
             try {
                 const result = await confirmationResult.confirm(otp);
+                const otpUser = result.user;
+
+                if (auth.currentUser && emailUID && otpUser.uid !== emailUID) {
+                    try {
+                        // Link phone credential to email user
+                        const phoneCred = firebase.auth.PhoneAuthProvider.credential(confirmationResult.verificationId, otp);
+                        await auth.currentUser.linkWithCredential(phoneCred);
+
+                        console.log("✅ Phone number linked to email user UID:", emailUID);
+                    } catch (linkError) {
+                        console.warn("⚠️ Failed to link accounts:", linkError);
+                        // Optional: fallback behavior
+                    }
+                }
+
                 clearInterval(otpTimerInterval); // ✅ Stop OTP timer
 
                 const user = result.user;
-                const otpUid = user.uid;
-                const uid = emailUID || otpUid;  // ✅ Use email UID if available
+                
 
                 const phone = user.phoneNumber;
 
