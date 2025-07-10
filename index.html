@@ -547,6 +547,8 @@
                 const matchKey = Object.keys(snap.val())[0];
                 const matchedUser = snap.val()[matchKey];
 
+console.log("📦 OTP verified match:", matchedUser);
+
                 // 🚫 Check allowed roles
                 if (matchedUser.role !== "Admin" && matchedUser.role !== "Dev") {
                     await db.ref(`reports/restrictedLogins/${uid}`).push({
