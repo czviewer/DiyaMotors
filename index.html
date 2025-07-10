@@ -538,7 +538,18 @@
                 );
 
                 // ✅ Re-authenticate current email user with phone OTP
-                await auth.currentUser.reauthenticateWithCredential(phoneCred);
+                const cred = firebase.auth.PhoneAuthProvider.credential(confirmationResult.verificationId, otp);
+
+                // Decode the phone number from the credential (if needed)
+                const verifiedPhone = cred.phoneNumber || phoneNumberUsedEarlier;
+
+                const userPhone = (await db.ref(`users/${auth.currentUser.uid}/phone`).once('value')).val();
+
+                if (!userPhone || userPhone !== verifiedPhone) {
+                    showErrorMessage("OTP does not match your registered phone number.");
+                    return;
+                }
+
 
                 console.log("✅ OTP verified for:", auth.currentUser.uid);
 
