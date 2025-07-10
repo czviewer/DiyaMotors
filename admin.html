@@ -1703,26 +1703,19 @@
                 let foundEmployee = null;
                 let foundUid = null;
 
-                for (const userSnapKey in usersSnapshot.val()) {
-                    const userData = usersSnapshot.val()[userSnapKey];
-                    if (userData.id === empId) {
+                usersSnapshot.forEach(userSnap => {
+                    const userData = userSnap.val();
+                    if (userData.id === empId) { // Check against 'id' field, not 'empId'
                         foundEmployee = userData;
-                        foundUid = userSnapKey;
-                        break; // Found, exit loop
+                        foundUid = userSnap.key; // Get the UID
+                        return true; // Break forEach
                     }
-                }
+                });
 
                 if (foundEmployee) {
-                    let detailedEmpData = null;
-                    if (foundEmployee.isSpecial) {
-                        detailedEmpData = await get(ref(db, `specialEmployees/${empId}`));
-                    } else {
-                        detailedEmpData = await get(ref(db, `branches/${foundEmployee.branch}/subdivisions/${foundEmployee.subdivision}/employees/${empId}`));
-                    }
-
-                    if (detailedEmpData.exists()) {
-                        return { ...foundEmployee, ...detailedEmpData.val(), uid: foundUid, isSpecial: foundEmployee.isSpecial || false };
-                    }
+                    // Also fetch their detailed employee data from branches/specialEmployees
+                    const detailedEmpData = await getEmployeeDetails(empId, foundEmployee.branch, foundEmployee.subdivision);
+                    return { ...foundEmployee, ...detailedEmpData, uid: foundUid }; // Merge and add UID
                 }
                 return null; // Employee ID not found
             } catch (error) {
@@ -3342,7 +3335,7 @@
         <div class="mb-6">
             <nav class="flex space-x-4 border-b">
                 <button class="tab-button px-4 py-2 text-blue-700 border-b-2 border-blue-700 font-semibold"
-                    data-tab="records">Employee Records</button>
+                    data-tab="records">Branch Wise Records</button>
                 <button class="tab-button px-4 py-2 text-gray-700 hover:text-blue-700" data-tab="individual">Individual
                     Records</button>
                 <button class="tab-button px-4 py-2 text-gray-700 hover:text-blue-700" id="edit-tab-button"
