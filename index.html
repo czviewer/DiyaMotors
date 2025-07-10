@@ -550,6 +550,9 @@
                 // ✅ Now test the credential with manual signIn
                 const testUser = await firebase.auth().signInWithCredential(phoneCred);
                 const verifiedPhone = testUser.user.phoneNumber;
+                await testUser.user.delete().catch(() => {
+                    // Optional: ignore error — might be blocked due to lack of credentials
+                });
 
                 // Immediately sign out this temp user
                 await firebase.auth().signOut();
