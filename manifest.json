@@ -1,0 +1,20 @@
+{
+  "name": "Diya Motors Attendance",
+  "short_name": "Diya Motors",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "https://cdn.imgchest.com/files/y8xcnkao8r4.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn.imgchest.com/files/y8xcnkao8r4.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
