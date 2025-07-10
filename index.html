@@ -518,7 +518,6 @@
             showLoading(otpSpinner, verifyOtpBtn);
 
             const otp = otpInputs.map(input => input.value).join('');
-
             if (otp.length !== 6) {
                 showErrorMessage('Please enter a 6-digit OTP.');
                 hideLoading(otpSpinner, verifyOtpBtn);
@@ -532,69 +531,30 @@
             }
 
             try {
-                const result = await confirmationResult.confirm(otp);
-                const otpUser = result.user;
+                const phoneCred = firebase.auth.PhoneAuthProvider.credential(confirmationResult.verificationId, otp);
 
-                if (auth.currentUser && emailUID && otpUser.uid !== emailUID) {
-                    try {
-                        // Link phone credential to email user
-                        const phoneCred = firebase.auth.PhoneAuthProvider.credential(confirmationResult.verificationId, otp);
-                        await auth.currentUser.linkWithCredential(phoneCred);
+                await auth.currentUser.linkWithCredential(phoneCred)
+                    .then(() => {
+                        console.log("✅ Phone number linked to email user:", emailUID);
+                        proceedToDashboard();
+                    })
+                    .catch(async (err) => {
+                        if (err.code === "auth/credential-already-in-use") {
+                            console.warn("⚠️ Already linked elsewhere. Re-signing with email...");
 
-                        console.log("✅ Phone number linked to email user UID:", emailUID);
-                    } catch (linkError) {
-                        console.warn("⚠️ Failed to link accounts:", linkError);
-                        // Optional: fallback behavior
-                    }
-                }
-
-                clearInterval(otpTimerInterval); // ✅ Stop OTP timer
-
-                const user = result.user;
-                
-
-                const phone = user.phoneNumber;
-
-                // 🔍 Look up user by phone from DB
-                const snap = await db.ref("users").orderByChild("phone").equalTo(phone).once("value");
-
-                if (!snap.exists()) {
-                    showErrorMessage("Access denied. Phone number not registered.");
-                    hideLoading(otpSpinner, verifyOtpBtn);
-                    return;
-                }
-
-                const matchKey = Object.keys(snap.val())[0];
-                const matchedUser = snap.val()[matchKey];
-
-                console.log("📦 OTP verified match:", matchedUser);
-
-                // 🚫 Check allowed roles
-                if (matchedUser.role !== "Admin" && matchedUser.role !== "Dev") {
-                    await db.ref(`reports/restrictedLogins/${uid}`).push({
-                        timestamp: new Date().toISOString(),
-                        attemptedRole: matchedUser.role,
-                        email: matchedUser.email || '',
-                        browserInfo: navigator.userAgent
+                            const email = emailInput.value.trim();
+                            const password = passwordInput.value.trim();
+                            await auth.signInWithEmailAndPassword(email, password);
+                            console.log("✅ Re-authenticated into original UID");
+                            proceedToDashboard();
+                        } else {
+                            console.error("❌ Linking error:", err);
+                            showErrorMessage("Failed to verify OTP: " + err.message);
+                        }
                     });
 
-                    showErrorMessage("Access Denied. Unauthorized role.");
-                    await auth.signOut();
-                    hideLoading(otpSpinner, verifyOtpBtn);
-                    return;
-                }
-
-                // ✅ Copy user data to /users/{new uid}
-
-                // ✅ Redirect
-                if (matchedUser.role === "Admin") {
-                    window.location.href = "admin.html";
-                } else if (matchedUser.role === "Dev") {
-                    window.location.href = "home.html";
-                }
-
             } catch (error) {
-                console.error("OTP verification error:", error);
+                console.error("OTP verification fatal error:", error);
                 let message = 'Invalid OTP. Please try again.';
                 if (error.code === 'auth/invalid-verification-code') {
                     message = 'The verification code is invalid.';
@@ -606,6 +566,23 @@
                 hideLoading(otpSpinner, verifyOtpBtn);
             }
         });
+
+
+        function proceedToDashboard() {
+            db.ref("users/" + auth.currentUser.uid).once("value").then((snap) => {
+                const userData = snap.val();
+                if (!userData || (userData.role !== "Admin" && userData.role !== "Dev")) {
+                    showErrorMessage("Access Denied. Unauthorized role.");
+                    return auth.signOut();
+                }
+
+                if (userData.role === "Admin") {
+                    window.location.href = "admin.html";
+                } else {
+                    window.location.href = "home.html";
+                }
+            });
+        }
 
         // Ensure reCAPTCHA container is ready on page load
         document.addEventListener('DOMContentLoaded', () => {
