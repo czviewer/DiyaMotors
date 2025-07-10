@@ -525,57 +525,66 @@
             }
 
             if (!confirmationResult || !auth.currentUser) {
-                showErrorMessage('Something went wrong. Please try logging in again.');
+                showErrorMessage('Session error. Please login again.');
                 hideLoading(otpSpinner, verifyOtpBtn);
                 return;
             }
 
             try {
-                // ✅ Create phone credential from OTP
+                // ✅ Create credential only (DON'T confirm, DON'T reauthenticate)
                 const phoneCred = firebase.auth.PhoneAuthProvider.credential(
                     confirmationResult.verificationId,
                     otp
                 );
 
-                // ✅ Re-authenticate current email user with phone OTP
-                const cred = firebase.auth.PhoneAuthProvider.credential(confirmationResult.verificationId, otp);
+                // ✅ Get phone number stored for current email UID
+                const snapshot = await db.ref(`users/${auth.currentUser.uid}/phone`).once('value');
+                const storedPhone = snapshot.val();
 
-                // Decode the phone number from the credential (if needed)
-                const verifiedPhone = cred.phoneNumber || phoneNumberUsedEarlier;
-
-                const userPhone = (await db.ref(`users/${auth.currentUser.uid}/phone`).once('value')).val();
-
-                if (!userPhone || userPhone !== verifiedPhone) {
-                    showErrorMessage("OTP does not match your registered phone number.");
-                    return;
-                }
-
-
-                console.log("✅ OTP verified for:", auth.currentUser.uid);
-
-                // 🚫 DO NOT create/set anything in DB
-                // ✅ Just proceed to redirect if user has valid role
-                const uid = auth.currentUser.uid;
-                const snap = await db.ref(`users/${uid}`).once("value");
-                const userData = snap.val();
-
-                if (!userData || (userData.role !== "Admin" && userData.role !== "Dev")) {
-                    showErrorMessage("Access Denied. Unauthorized role.");
-                    await auth.signOut();
+                if (!storedPhone) {
+                    showErrorMessage("No registered phone found. Contact support.");
                     hideLoading(otpSpinner, verifyOtpBtn);
                     return;
                 }
 
-                // ✅ Redirect based on role
-                if (userData.role === "Admin") {
-                    window.location.href = "admin.html";
-                } else {
-                    window.location.href = "home.html";
+                // ✅ Now test the credential with manual signIn
+                const testUser = await firebase.auth().signInWithCredential(phoneCred);
+                const verifiedPhone = testUser.user.phoneNumber;
+
+                // Immediately sign out this temp user
+                await firebase.auth().signOut();
+
+                // ✅ Re-sign in original email user
+                const email = emailInput.value.trim();
+                const password = passwordInput.value.trim();
+                const emailUser = await auth.signInWithEmailAndPassword(email, password);
+
+                if (verifiedPhone !== storedPhone) {
+                    showErrorMessage("OTP doesn't match your registered number.");
+                    await firebase.auth().signOut(); // Clean temp session
+                    hideLoading(otpSpinner, verifyOtpBtn);
+                    return;
                 }
 
-            } catch (error) {
-                console.error("❌ OTP verification failed:", error);
-                showErrorMessage("Invalid OTP. Please try again.");
+
+                console.log("✅ OTP matched for phone:", verifiedPhone);
+
+                // ✅ Role check & redirect
+                const roleSnap = await db.ref(`users/${emailUser.user.uid}/role`).once('value');
+                const role = roleSnap.val();
+
+                if (role === "Admin") {
+                    window.location.href = "admin.html";
+                } else if (role === "Dev") {
+                    window.location.href = "home.html";
+                } else {
+                    showErrorMessage("Access Denied. Unauthorized role.");
+                    await auth.signOut();
+                }
+
+            } catch (err) {
+                console.error("❌ OTP verification failed:", err);
+                showErrorMessage("Invalid OTP or expired session.");
             } finally {
                 hideLoading(otpSpinner, verifyOtpBtn);
             }
