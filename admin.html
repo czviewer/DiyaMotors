@@ -10,7 +10,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
-        import { getDatabase, ref, get, set, update, remove, push, onValue } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js'; // Ensure 'push' and 'onValue' are imported
+        import { getDatabase, ref, get, set, update, remove, push, onValue, off } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js'; // Ensure 'push', 'onValue', 'off' are imported
 
         const firebaseConfig = {
             apiKey: "AIzaSyBU3K7gRzqiqQt3o9thoEpd06ReLGVmm_w",
@@ -100,7 +100,6 @@
             if (onConfirm) {
                 modalConfirmBtn.classList.remove('hidden');
                 modalCancelBtn.classList.remove('hidden');
-                modalConfirmBtn.textContent = 'Confirm'; // Ensure button text is 'Confirm'
                 modalConfirmBtn.onclick = () => {
                     modal.style.display = 'none';
                     onConfirm(true);
@@ -138,7 +137,7 @@
         const tabContents = document.querySelectorAll('.tab-content');
         const editTabButton = document.getElementById('edit-tab-button'); // Get the employee management tab button
         const branchManagementTabButton = document.getElementById('branch-management-tab-button'); // Get the new branch management tab button
-        const employeeSessionsTabButton = document.getElementById('employee-sessions-tab-button'); // New: Get employee sessions tab button
+        const employeeSessionsTabButton = document.getElementById('employee-sessions-tab-button'); // Get the new employee sessions tab button
 
         tabButtons.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -157,7 +156,7 @@
                     return;
                 }
 
-                // New: Check role for 'employee-sessions' tab
+                // Check role for 'employee-sessions' tab
                 if (target === 'employee-sessions' && currentUserRole !== 'Admin' && currentUserRole !== 'Dev') {
                     showModal("You do not have permission to access Employee Sessions.", null, true);
                     return;
@@ -186,9 +185,11 @@
                 if (target === 'branch-management') {
                     populateBranchesAndSubdivisions();
                 }
-                // New: If switching to employee sessions tab, load sessions
+                // If switching to employee sessions tab, start listening for sessions
                 if (target === 'employee-sessions') {
-                    loadEmployeeSessions();
+                    startListeningForSessions();
+                } else {
+                    stopListeningForSessions(); // Stop listening if switching away
                 }
             });
         });
@@ -298,15 +299,15 @@
                 }
 
 
-                // Hide tabs if not Admin/Dev
+                // Hide edit tab if not Admin/Dev
                 if (currentUserRole !== 'Admin' && currentUserRole !== 'Dev') {
                     editTabButton.classList.add('hidden');
                     branchManagementTabButton.classList.add('hidden');
-                    employeeSessionsTabButton.classList.add('hidden'); // New: Hide employee sessions tab
+                    employeeSessionsTabButton.classList.add('hidden'); // Hide sessions tab
                 } else {
                     editTabButton.classList.remove('hidden');
                     branchManagementTabButton.classList.remove('hidden');
-                    employeeSessionsTabButton.classList.remove('hidden'); // New: Show employee sessions tab
+                    employeeSessionsTabButton.classList.remove('hidden'); // Show sessions tab
                 }
 
                 // Show/hide Activity Logs button based on role
@@ -346,19 +347,6 @@
                         window.location.href = 'activitylogs.html'; // Open in same tab
                     });
                 }
-
-                // New: Update admin's last seen status every 30 seconds
-                setInterval(async () => {
-                    if (auth.currentUser) {
-                        try {
-                            await update(ref(db, `users/${auth.currentUser.uid}`), {
-                                lastLogin: getNow().toISOString()
-                            });
-                        } catch (error) {
-                            console.error("Error updating admin lastLogin:", error);
-                        }
-                    }
-                }, 30000); // Update every 30 seconds
 
             } else {
                 // Should ideally not be reached due to anonymous sign-in, but as a fallback
@@ -461,7 +449,7 @@
             const selectedBranch = recordBranchDropdown.value;
             const selectedSubdivision = recordSubdivisionDropdown.value;
             const fromDateStr = document.getElementById("record-from").value;
-            const toDateStr = document.getElementById("record-to").value;
+            const toDateStr = document.getElementById("record-to").value.value;
             const showTimes = document.getElementById("toggle-times").checked;
 
             recordsTableBody.innerHTML = '<tr><td colspan="10" class="text-center text-gray-500 py-4">Loading records...</td></tr>';
@@ -1235,6 +1223,7 @@
                 for (let d = new Date(fromDate); d < toDate; d.setDate(d.getDate() + 1)) {
                     const currentDate = d.toISOString().split('T')[0]; //YYYY-MM-DD
                     const currentDayOfWeek = new Date(currentDate).getDay(); // 0 for Sunday
+
                     for (const [empId, empDetails] of employeesToFetch.entries()) {
                         let attendance = null;
                         let leaveData = null;
@@ -1817,7 +1806,7 @@
             document.getElementById("edit-employee-name").value = "";
             document.getElementById("edit-employee-phone").value = "";
             document.getElementById("edit-employee-email").value = "";
-            document.getElementById("edit-employee-designation").value = "";
+            document.getElementById("edit-employee-designation").value = ""; // Clear designation
             deviceIdDisplay.textContent = "N/A";
             resetDeviceIdBtn.classList.add('hidden');
             currentEmployeeUid = null;
@@ -2970,163 +2959,191 @@
             });
         });
 
-        // --- Employee Sessions Logic (NEW SECTION) ---
+        // Call populateBranchesAndSubdivisions on window load to ensure the initial list is rendered
+        window.onload = function () {
+            populateBranchesAndSubdivisions();
+        };
+
+        // --- Employee Sessions Logic ---
         const sessionBranchFilter = document.getElementById('session-branch-filter');
         const sessionSubdivisionFilter = document.getElementById('session-subdivision-filter');
-        const sessionActiveOnlyCheckbox = document.getElementById('session-active-only');
-        const employeeSessionsTableBody = document.getElementById('employee-sessions-table-body');
+        const sessionActiveOnlyFilter = document.getElementById('session-active-only-filter');
+        const sessionsTableBody = document.getElementById('sessions-table-body');
 
-        let allEmployeeSessions = []; // Stores all fetched session data
+        let allUsersData = {}; // Cache for all user data, including employee details
+        let allBranchesAndSubdivisions = {}; // Cache for branches and subdivisions
+        let sessionListener = null; // To hold the Firebase onValue listener
 
-        // Populate branch and subdivision filters for sessions tab
+        // Function to populate branch and subdivision filters for sessions tab
         async function populateSessionFilters() {
             sessionBranchFilter.innerHTML = `<option value="All">All Branches</option>`;
             sessionSubdivisionFilter.innerHTML = `<option value="All">All Subdivisions</option>`;
             sessionSubdivisionFilter.disabled = true;
 
             try {
-                const snapshot = await get(ref(db, "branches"));
-                const branchesData = snapshot.val() || {};
-                Object.keys(branchesData).forEach(branchKey => {
+                const branchesSnap = await get(ref(db, "branches"));
+                allBranchesAndSubdivisions = branchesSnap.val() || {};
+
+                Object.keys(allBranchesAndSubdivisions).forEach(branchKey => {
                     const label = branchKey.charAt(0).toUpperCase() + branchKey.slice(1);
                     sessionBranchFilter.innerHTML += `<option value="${branchKey}">${label}</option>`;
                 });
+                sessionSubdivisionFilter.disabled = false; // Enable subdivision filter even if no branch selected to allow "All"
             } catch (error) {
-                console.error("Error populating session branch filter:", error);
+                console.error("Error populating session filters:", error);
             }
         }
 
-        sessionBranchFilter.addEventListener('change', async () => {
+        // Event listener for branch filter change
+        sessionBranchFilter.addEventListener('change', () => {
             const selectedBranch = sessionBranchFilter.value;
             sessionSubdivisionFilter.innerHTML = `<option value="All">All Subdivisions</option>`;
             sessionSubdivisionFilter.disabled = true;
 
-            if (selectedBranch !== "All") {
-                try {
-                    const snapshot = await get(ref(db, `branches/${selectedBranch}/subdivisions`));
-                    const subdivisionsData = snapshot.val() || {};
-                    Object.keys(subdivisionsData).forEach(subKey => {
-                        const label = subKey.charAt(0).toUpperCase() + subKey.slice(1);
-                        sessionSubdivisionFilter.innerHTML += `<option value="${subKey}">${label}</option>`;
-                    });
-                    sessionSubdivisionFilter.disabled = false;
-                } catch (error) {
-                    console.error("Error populating session subdivision filter:", error);
-                }
+            if (selectedBranch !== "All" && allBranchesAndSubdivisions[selectedBranch] && allBranchesAndSubdivisions[selectedBranch].subdivisions) {
+                Object.keys(allBranchesAndSubdivisions[selectedBranch].subdivisions).forEach(subKey => {
+                    const label = subKey.charAt(0).toUpperCase() + subKey.slice(1);
+                    sessionSubdivisionFilter.innerHTML += `<option value="${subKey}">${label}</option>`;
+                });
+                sessionSubdivisionFilter.disabled = false;
+            } else if (selectedBranch === "All") {
+                sessionSubdivisionFilter.disabled = false;
             }
-            applySessionFilters(); // Apply filters immediately on change
+            renderSessionsTable(); // Re-render table with new filters
         });
 
-        sessionSubdivisionFilter.addEventListener('change', applySessionFilters);
-        sessionActiveOnlyCheckbox.addEventListener('change', applySessionFilters);
+        // Event listeners for subdivision and active only filters
+        sessionSubdivisionFilter.addEventListener('change', renderSessionsTable);
+        sessionActiveOnlyFilter.addEventListener('change', renderSessionsTable);
 
+        // Function to start listening for real-time session data
+        function startListeningForSessions() {
+            // Detach any existing listener first
+            stopListeningForSessions();
 
-        // Load employee sessions in real-time
-        function loadEmployeeSessions() {
-            employeeSessionsTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-4">Loading sessions...</td></tr>';
+            // Fetch all users once to get their employee IDs and details
+            get(ref(db, 'users')).then(usersSnapshot => {
+                allUsersData = {};
+                usersSnapshot.forEach(userChild => {
+                    const userData = userChild.val();
+                    const uid = userChild.key;
+                    allUsersData[uid] = {
+                        uid: uid,
+                        id: userData.id || 'N/A',
+                        name: userData.name || 'N/A',
+                        email: userData.email || 'N/A',
+                        branch: userData.branch || 'N/A',
+                        subdivision: userData.subdivision || 'N/A',
+                        role: userData.role || 'user',
+                        boundDevice: userData.boundDevice || 'N/A',
+                        ipAddress: userData.ipAddress || 'N/A',
+                        lastSeen: userData.lastSeen || 0,
+                        status: userData.status || 'inactive',
+                        terminate: userData.terminate || false // Flag for force logout
+                    };
+                });
+                // Once user data is loaded, set up the real-time listener for sessions
+                const sessionsRef = ref(db, 'sessions');
+                sessionListener = onValue(sessionsRef, (snapshot) => {
+                    const sessionsData = snapshot.val() || {};
+                    const combinedData = [];
 
-            const usersRef = ref(db, 'users');
-            onValue(usersRef, async (snapshot) => {
-                const usersData = snapshot.val() || {};
-                const sessions = [];
+                    // Combine session data with user data
+                    for (const uid in allUsersData) {
+                        const userData = { ...allUsersData[uid] }; // Start with cached user data
+                        const session = sessionsData[uid];
 
-                for (const uid in usersData) {
-                    const user = usersData[uid];
-                    if (user.role === 'employee') { // Only show employees
-                        const lastLoginTime = user.lastLogin ? new Date(user.lastLogin) : null;
-                        const currentTime = getNow();
-                        const isActive = user.boundDevice && lastLoginTime && (currentTime.getTime() - lastLoginTime.getTime() < 5 * 60 * 1000) && !user.terminate; // Active if bound, recent login (within 5 mins), and not terminated
-
-                        // Fetch detailed employee data for name, email, branch, subdivision if not directly in user node
-                        let employeeName = user.name || 'N/A';
-                        let employeeEmail = user.email || 'N/A';
-                        let employeeBranch = user.branch || 'N/A';
-                        let employeeSubdivision = user.subdivision || 'N/A';
-
-                        // If user data doesn't have full details, try fetching from branches/specialEmployees
-                        if (!user.name || !user.branch || !user.subdivision) {
-                            const detailedEmp = await getEmployeeDetails(user.id, user.branch, user.subdivision);
-                            if (detailedEmp) {
-                                employeeName = detailedEmp.name || employeeName;
-                                employeeEmail = detailedEmp.email || employeeEmail;
-                                employeeBranch = detailedEmp.branch || employeeBranch;
-                                employeeSubdivision = detailedEmp.subdivision || employeeSubdivision;
-                            }
+                        if (session) {
+                            userData.status = session.status || 'inactive';
+                            userData.lastSeen = session.lastSeen || userData.lastSeen;
+                            userData.deviceInfo = session.deviceInfo || 'N/A';
+                            userData.ipAddress = session.ipAddress || userData.ipAddress;
+                            userData.terminate = session.terminate || false; // Update terminate flag from session
+                        } else {
+                            // If no active session, ensure status is inactive
+                            userData.status = 'inactive';
+                            userData.deviceInfo = 'N/A';
+                            userData.terminate = false;
                         }
-
-                        sessions.push({
-                            uid: uid,
-                            id: user.id || 'N/A',
-                            name: employeeName,
-                            email: employeeEmail,
-                            branch: employeeBranch,
-                            subdivision: employeeSubdivision,
-                            status: isActive ? 'Active' : 'Inactive',
-                            lastSeen: lastLoginTime ? lastLoginTime.toLocaleString("en-IN") : 'Never',
-                            deviceInfo: user.boundDevice || 'N/A',
-                            ipAddress: user.ipInfo?.ip || 'N/A',
-                            terminateFlag: user.terminate || false // Store the terminate flag
-                        });
+                        combinedData.push(userData);
                     }
-                }
-                allEmployeeSessions = sessions; // Store all sessions for filtering
-                applySessionFilters(); // Apply current filters
-            }, (error) => {
-                console.error("Error fetching employee sessions:", error);
-                employeeSessionsTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-red-500">Error loading sessions.</td></tr>';
+                    renderSessionsTable(combinedData);
+                }, (error) => {
+                    console.error("Error listening to sessions:", error);
+                    sessionsTableBody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-red-500">Error loading sessions.</td></tr>';
+                });
+            }).catch(error => {
+                console.error("Error fetching initial user data for sessions:", error);
+                sessionsTableBody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-red-500">Error loading user data.</td></tr>';
             });
+
+            // Populate filters once initially
+            populateSessionFilters();
         }
 
-        // Apply filters to the displayed sessions
-        function applySessionFilters() {
-            let filteredSessions = [...allEmployeeSessions]; // Start with all sessions
+        // Function to stop listening for real-time session data
+        function stopListeningForSessions() {
+            if (sessionListener) {
+                off(ref(db, 'sessions'), sessionListener);
+                sessionListener = null;
+                console.log("Stopped listening for employee sessions.");
+            }
+        }
 
+        // Function to render the sessions table based on current data and filters
+        function renderSessionsTable(data = null) {
+            const currentSessions = data || Object.values(allUsersData); // Use passed data or cached data
             const selectedBranch = sessionBranchFilter.value;
             const selectedSubdivision = sessionSubdivisionFilter.value;
-            const activeOnly = sessionActiveOnlyCheckbox.checked;
+            const showActiveOnly = sessionActiveOnlyFilter.checked;
 
-            if (selectedBranch !== "All") {
-                filteredSessions = filteredSessions.filter(session => session.branch === selectedBranch);
-            }
-            if (selectedSubdivision !== "All") {
-                filteredSessions = filteredSessions.filter(session => session.subdivision === selectedSubdivision);
-            }
-            if (activeOnly) {
-                filteredSessions = filteredSessions.filter(session => session.status === 'Active');
-            }
+            sessionsTableBody.innerHTML = ''; // Clear existing rows
 
-            renderEmployeeSessionsTable(filteredSessions);
-        }
+            let filteredSessions = currentSessions.filter(session => {
+                let matchesBranch = (selectedBranch === "All" || session.branch === selectedBranch);
+                let matchesSubdivision = (selectedSubdivision === "All" || session.subdivision === selectedSubdivision);
+                let matchesActive = (!showActiveOnly || session.status === 'active');
 
-        // Render the employee sessions table
-        function renderEmployeeSessionsTable(sessions) {
-            employeeSessionsTableBody.innerHTML = '';
-            if (sessions.length === 0) {
-                employeeSessionsTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4">No employee sessions found for the selected criteria.</td></tr>';
+                return matchesBranch && matchesSubdivision && matchesActive;
+            });
+
+            // Sort by status (active first), then by name
+            filteredSessions.sort((a, b) => {
+                if (a.status === 'active' && b.status !== 'active') return -1;
+                if (a.status !== 'active' && b.status === 'active') return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+
+            if (filteredSessions.length === 0) {
+                sessionsTableBody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No sessions found matching filters.</td></tr>';
                 return;
             }
 
-            sessions.forEach(session => {
+            filteredSessions.forEach(session => {
                 const row = document.createElement('tr');
-                row.classList.add('border-b');
+                row.classList.add('hover:bg-gray-100');
 
-                const statusClass = session.status === 'Active' ? 'text-green-600 font-bold' : 'text-red-600';
-                const forceLogoutBtnHtml = session.status === 'Active' ?
-                    `<button class="force-logout-btn bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm" data-uid="${session.uid}" data-name="${session.name}">Force Logout</button>` :
-                    `<button class="bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed" disabled>Inactive</button>`;
+                const statusColorClass = session.status === 'active' ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+                const lastSeenFormatted = session.lastSeen ? new Date(session.lastSeen).toLocaleString() : 'N/A';
 
                 row.innerHTML = `
-                    <td class="py-2 px-4">${session.name}</td>
-                    <td class="py-2 px-4">${session.email}</td>
-                    <td class="py-2 px-4">${session.branch}</td>
-                    <td class="py-2 px-4">${session.subdivision}</td>
-                    <td class="py-2 px-4 ${statusClass}">${session.status}</td>
-                    <td class="py-2 px-4">${session.lastSeen}</td>
-                    <td class="py-2 px-4 break-all">${session.deviceInfo}</td>
-                    <td class="py-2 px-4">${session.ipAddress}</td>
-                    <td class="py-2 px-4">${forceLogoutBtnHtml}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${session.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${session.email}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${session.branch}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${session.subdivision}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${statusColorClass}">${session.status.charAt(0).toUpperCase() + session.status.slice(1)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${lastSeenFormatted}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${session.deviceInfo}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${session.ipAddress}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        ${session.status === 'active' ?
+                            `<button class="force-logout-btn bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md shadow-sm" data-uid="${session.uid}" data-name="${session.name}">Force Logout</button>` :
+                            `<span class="text-gray-500">N/A</span>`
+                        }
+                    </td>
                 `;
-                employeeSessionsTableBody.appendChild(row);
+                sessionsTableBody.appendChild(row);
             });
 
             // Attach event listeners to force logout buttons
@@ -3135,21 +3152,30 @@
             });
         }
 
-        // Handle force logout
+        // Handle Force Logout
         async function handleForceLogout(event) {
-            const uid = event.target.dataset.uid;
+            const uidToLogout = event.target.dataset.uid;
             const employeeName = event.target.dataset.name;
 
             showModal(`Are you sure you want to force logout "${employeeName}"? Their session will be terminated immediately.`, async (confirm) => {
                 if (!confirm) return;
 
-                showLoadingModal(`Forcing logout for ${employeeName}...`);
+                showLoadingModal(`Force logging out ${employeeName}...`);
                 try {
-                    // Set terminate flag to true and clear boundDevice
-                    await update(ref(db, `users/${uid}`), {
+                    // Set terminate flag to true and status to inactive in the session node
+                    const sessionRef = ref(db, `sessions/${uidToLogout}`);
+                    await update(sessionRef, {
                         terminate: true,
-                        boundDevice: null, // Clear bound device so they can re-login on a new device if needed
-                        lastLogin: getNow().toISOString() // Update lastLogin to reflect termination time
+                        status: 'inactive',
+                        lastSeen: getNow().toISOString(), // Update last seen to now
+                        deviceInfo: 'N/A', // Clear device info
+                        ipAddress: 'N/A' // Clear IP address
+                    });
+
+                    // Also update the user's profile to reflect inactive status
+                    const userProfileRef = ref(db, `users/${uidToLogout}`);
+                    await update(userProfileRef, {
+                        status: 'inactive'
                     });
 
                     // Log activity
@@ -3160,27 +3186,25 @@
                         by: currentUserName,
                         action: "Force Logout",
                         section: "Employee Sessions",
-                        targetEmployeeName: employeeName,
-                        targetUid: uid
+                        targetUid: uidToLogout,
+                        employeeName: employeeName
                     });
 
                     hideLoadingModal();
-                    showModal(`Successfully forced logout for ${employeeName}.`);
-                    // The onValue listener for sessions will automatically update the table
+                    showModal(`Successfully sent force logout signal to ${employeeName}.`);
                 } catch (error) {
                     hideLoadingModal();
                     console.error("Error forcing logout:", error);
                     showModal("Failed to force logout: " + error.message, null, true);
                 }
-            }, true); // Use true for isError to make it a warning modal
+            });
         }
 
-
-        // Call populateBranchesAndSubdivisions on window load to ensure the initial list is rendered
-        window.onload = function () {
-            populateBranchesAndSubdivisions();
-            populateSessionFilters(); // New: Populate session filters on load
-        };
+        // Initial call to populate filters and start listening when the page loads
+        // This will be called when the 'employee-sessions' tab is clicked for the first time
+        // However, we need to ensure filters are populated initially for the tab itself.
+        // The `onAuthStateChanged` listener will call `populateBranchesAndSubdivisions` on load,
+        // which will also implicitly call this. For sessions, we'll call it when the tab is activated.
 
     </script>
 </head>
@@ -3577,6 +3601,7 @@
                 <button class="tab-button px-4 py-2 text-gray-700 hover:text-blue-700" id="branch-management-tab-button"
                     data-tab="branch-management">Branch & Subdivision Management
                 </button>
+                <!-- NEW: Employee Sessions Tab Button -->
                 <button class="tab-button px-4 py-2 text-gray-700 hover:text-blue-700" id="employee-sessions-tab-button"
                     data-tab="employee-sessions">Employee Sessions
                 </button>
@@ -4118,55 +4143,52 @@
             </div>
         </div>
 
-        <!-- New: Employee Sessions Tab Content -->
-        <div id="tab-employee-sessions" class="tab-content hidden">
-            <div class="bg-white p-6 rounded shadow space-y-6">
-                <h2 class="text-lg font-semibold mb-4">Employee Sessions</h2>
+        <!-- NEW: Employee Sessions Tab Content -->
+        <div id="tab-employee-sessions" class="tab-content hidden p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">Employee Sessions</h2>
 
-                <div class="flex flex-wrap gap-4 items-end mb-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Branch</label>
-                        <select id="session-branch-filter" class="form-select border rounded px-3 py-2">
-                            <option value="All">All Branches</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Subdivision</label>
-                        <select id="session-subdivision-filter" class="form-select border rounded px-3 py-2" disabled>
-                            <option value="All">All Subdivisions</option>
-                        </select>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" id="session-active-only"
-                            class="form-checkbox h-4 w-4 text-blue-600 rounded">
-                        <label for="session-active-only" class="text-sm font-medium text-gray-700">Active Users Only</label>
-                    </div>
+            <!-- Filters Section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                    <label for="session-branch-filter" class="block text-sm font-medium text-gray-700">Branch</label>
+                    <select id="session-branch-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                        <option value="All">All Branches</option>
+                    </select>
                 </div>
-
-                <div class="overflow-x-auto">
-                    <table class="min-w-full border text-sm">
-                        <thead class="bg-gray-100 font-semibold">
-                            <tr>
-                                <th class="border px-4 py-2">Name</th>
-                                <th class="border px-4 py-2">Email</th>
-                                <th class="border px-4 py-2">Branch</th>
-                                <th class="border px-4 py-2">Subdivision</th>
-                                <th class="border px-4 py-2">Session Status</th>
-                                <th class="border px-4 py-2">Last Seen</th>
-                                <th class="border px-4 py-2">Device Info</th>
-                                <th class="border px-4 py-2">IP Address</th>
-                                <th class="border px-4 py-2">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="employee-sessions-table-body">
-                            <!-- Session data will be dynamically loaded here -->
-                            <tr><td colspan="8" class="text-center text-gray-500 py-4">Loading sessions...</td></tr>
-                        </tbody>
-                    </table>
+                <div>
+                    <label for="session-subdivision-filter" class="block text-sm font-medium text-gray-700">Subdivision</label>
+                    <select id="session-subdivision-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm" disabled>
+                        <option value="All">All Subdivisions</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <input type="checkbox" id="session-active-only-filter" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2">
+                    <label for="session-active-only-filter" class="text-sm font-medium text-gray-700">Show Active Sessions Only</label>
                 </div>
             </div>
-        </div>
 
+            <!-- Sessions Table -->
+            <div class="overflow-x-auto bg-gray-50 p-4 rounded-lg shadow">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subdivision</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Info</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessions-table-body" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">Loading employee sessions...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Confirmation Modal -->
