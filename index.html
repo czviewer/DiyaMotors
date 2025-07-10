@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Diya Motors</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -189,7 +188,6 @@
         <img src="https://cdn.imgchest.com/files/y8xcnkao8r4.png" alt="Diya Motors Logo" class="logo-img">
         <p class="logo-caption">Diya Motors Attendance System</p>
 
-        <!-- Email/Password Login Section -->
         <div id="email-password-section">
             <div class="input-group">
                 <label for="email">Email</label>
@@ -205,7 +203,6 @@
             </button>
         </div>
 
-        <!-- OTP Verification Section -->
         <div id="otp-section" class="hidden">
             <p class="text-gray-700 mb-4">A 6-digit OTP has been sent to your registered phone number.</p>
             <div class="otp-input-group">
@@ -265,9 +262,11 @@
         // State variables
         let confirmationResult = null;
         let otpTimerInterval = null;
+        let otpExpirationTimer = null; // For OTP expiry timeout
         let originalUserCredentials = { email: '', password: '' }; // Store original credentials securely
 
         const OTP_TIMEOUT_SECONDS = 60;
+        const OTP_EXPIRY_MINUTES = 3; // OTP validity for 3 minutes
 
         // --- Utility and Security Functions ---
 
@@ -325,6 +324,21 @@
                 }
             }, 1000);
         }
+
+        /** Starts the OTP expiry timeout. */
+        function startOtpExpiryTimer() {
+            clearTimeout(otpExpirationTimer); // Clear any existing timer
+            otpExpirationTimer = setTimeout(() => {
+                confirmationResult = null; // Invalidate confirmationResult
+                showErrorMessage('OTP expired. Please request a new one.');
+                // Optionally revert UI to email/password section or keep it on OTP with error
+                // For now, let's keep it on OTP section with an error.
+                setLoadingState(false, otpSpinner, verifyOtpBtn); // Ensure button is enabled for new attempt
+                clearInterval(otpTimerInterval); // Stop resend timer
+                otpTimerDisplay.textContent = 'OTP expired.';
+                resendOtpBtn.disabled = false; // Allow resend
+            }, OTP_EXPIRY_MINUTES * 60 * 1000); // Convert minutes to milliseconds
+        }
         
         /**
          * Cleans up the reCAPTCHA instance.
@@ -336,6 +350,35 @@
                     grecaptcha.reset(widgetId);
                 });
             }
+        }
+
+        // --- Rate Limiting Logic ---
+        const MAX_FAILED_ATTEMPTS = 5;
+        const COOLDOWN_PERIOD_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+        function getFailedAttempts(email) {
+            const attempts = JSON.parse(localStorage.getItem(`failedLogin_${email}`)) || { count: 0, lastAttempt: 0 };
+            // Reset attempts if cooldown period has passed
+            if (Date.now() - attempts.lastAttempt > COOLDOWN_PERIOD_MS) {
+                attempts.count = 0;
+            }
+            return attempts;
+        }
+
+        function recordFailedAttempt(email) {
+            let attempts = getFailedAttempts(email);
+            attempts.count++;
+            attempts.lastAttempt = Date.now();
+            localStorage.setItem(`failedLogin_${email}`, JSON.stringify(attempts));
+        }
+
+        function resetFailedAttempts(email) {
+            localStorage.removeItem(`failedLogin_${email}`);
+        }
+
+        function isRateLimited(email) {
+            const attempts = getFailedAttempts(email);
+            return attempts.count >= MAX_FAILED_ATTEMPTS && (Date.now() - attempts.lastAttempt < COOLDOWN_PERIOD_MS);
         }
 
         // --- Main Logic ---
@@ -383,6 +426,15 @@
                 return;
             }
             
+            // Rate limiting check
+            if (isRateLimited(email)) {
+                const attempts = getFailedAttempts(email);
+                const timeLeft = Math.ceil((COOLDOWN_PERIOD_MS - (Date.now() - attempts.lastAttempt)) / 1000 / 60);
+                showErrorMessage(`Too many failed login attempts. Please try again in ${timeLeft} minutes.`);
+                setLoadingState(false, loginSpinner, loginBtn);
+                return;
+            }
+
             // Store credentials to re-authenticate after OTP check
             originalUserCredentials = { email, password };
 
@@ -391,6 +443,9 @@
                 const userCredential = await auth.signInWithEmailAndPassword(email, password);
                 const user = userCredential.user;
 
+                // Reset failed attempts on successful email/password login
+                resetFailedAttempts(email);
+
                 // Step 2: Fetch user data (role, phone) from Realtime Database
                 const userRef = db.ref(`users/${user.uid}`);
                 const snapshot = await userRef.once('value');
@@ -398,7 +453,7 @@
 
                 // Step 3: Security Check - Role and Phone Number must exist
                 if (!userData || !userData.role || !userData.phone) {
-                    showErrorMessage('Access Denied. Contact support.');
+                    showErrorMessage('Login failed. Please check your credentials.'); // Generic message
                     await auth.signOut(); // Sign out invalid user
                     setLoadingState(false, loginSpinner, loginBtn);
                     return;
@@ -406,7 +461,7 @@
 
                 const { role, phone } = userData;
                 if (role !== 'Admin' && role !== 'Dev') {
-                    showErrorMessage('Access Denied. Unauthorized role.');
+                    showErrorMessage('Login failed. Please check your credentials.'); // Generic message
                     await auth.signOut();
                     setLoadingState(false, loginSpinner, loginBtn);
                     return;
@@ -416,6 +471,7 @@
                 await sendOtp(phone);
 
             } catch (error) {
+                recordFailedAttempt(email); // Record failed attempt
                 // Use generic error messages for security
                 showErrorMessage('Login failed. Please check your credentials.');
                 setLoadingState(false, loginSpinner, loginBtn);
@@ -436,6 +492,7 @@
                 otpSection.classList.remove('hidden');
                 setLoadingState(false, loginSpinner, loginBtn);
                 startOtpTimer();
+                startOtpExpiryTimer(); // Start OTP expiry timer
                 otpInputs[0].focus();
 
             } catch (error) {
@@ -460,19 +517,23 @@
             const otpCode = otpInputs.map(input => sanitizeInput(input.value.trim())).join('');
 
             if (otpCode.length !== 6 || !/^\d{6}$/.test(otpCode)) {
-                showErrorMessage('Please enter a valid 6-digit OTP.');
+                showErrorMessage('OTP verification failed. Try again.'); // Generic OTP error
                 setLoadingState(false, otpSpinner, verifyOtpBtn);
                 return;
             }
 
             if (!confirmationResult) {
-                showErrorMessage('Verification session expired. Please log in again.');
+                showErrorMessage('OTP expired. Please request a new one.'); // Specific message for expired OTP session
                 setLoadingState(false, otpSpinner, verifyOtpBtn);
-                // Force a full page reload or redirect to reset state
-                window.location.reload();
+                clearInterval(otpTimerInterval); // Stop resend timer
+                otpTimerDisplay.textContent = 'OTP expired.';
+                resendOtpBtn.disabled = false; // Allow resend
                 return;
             }
             
+            // Clear the OTP expiry timer as OTP is being submitted
+            clearTimeout(otpExpirationTimer);
+
             let tempAuth;
             try {
                 // 2. Create a credential object with the OTP.
@@ -489,6 +550,9 @@
 
                 // 5. **CRITICAL**: Re-authenticate the original user to restore the correct session and UID.
                 const { email, password } = originalUserCredentials;
+                // Clear original credentials from memory immediately after use
+                originalUserCredentials = { email: '', password: '' }; 
+
                 if (!email || !password) {
                      showErrorMessage('Session error. Please log in again.');
                      window.location.reload();
@@ -504,7 +568,7 @@
                 
                 // 7. **SECURITY CHECK**: Compare the OTP-verified number with the database number.
                 if (!userData || verifiedPhoneNumber !== userData.phone) {
-                    showErrorMessage('Security check failed. Access denied.');
+                    showErrorMessage('OTP verification failed. Try again.'); // Generic OTP error
                     await auth.signOut(); // Ensure user is logged out
                     setLoadingState(false, otpSpinner, verifyOtpBtn);
                     return;
@@ -512,21 +576,29 @@
                 
                 // 8. Final Role Check & Redirect
                 if (userData.role === "Admin") {
+                    await db.ref(`loginLogs/${mainUser.uid}`).push({
+                        timestamp: Date.now(),
+                        method: "OTP",
+                        // ip: "client-ip-if-available" // IP capture requires Firebase Cloud Functions
+                    });
                     window.location.href = "admin.html";
                 } else if (userData.role === "Dev") {
+                     await db.ref(`loginLogs/${mainUser.uid}`).push({
+                        timestamp: Date.now(),
+                        method: "OTP",
+                        // ip: "client-ip-if-available" // IP capture requires Firebase Cloud Functions
+                    });
                     window.location.href = "home.html";
                 } else {
-                    showErrorMessage("Access Denied. Unauthorized role.");
+                    showErrorMessage("Login failed. Please check your credentials."); // Generic message
                     await auth.signOut();
                 }
 
             } catch (error) {
                 // Generic error for invalid OTP or other issues
-                showErrorMessage("Invalid OTP or verification failed. Please try again.");
+                showErrorMessage("OTP verification failed. Try again.");
                 // Do not sign out here, allow user to retry OTP
             } finally {
-                // Invalidate credentials after use for security
-                originalUserCredentials = { email: '', password: '' };
                 setLoadingState(false, otpSpinner, verifyOtpBtn);
             }
         });
@@ -559,6 +631,7 @@
             }
 
             try {
+                // Re-authenticate to ensure session validity before resending OTP
                 const userCredential = await auth.signInWithEmailAndPassword(email, password);
                 const userRef = db.ref(`users/${userCredential.user.uid}`);
                 const snapshot = await userRef.once('value');
@@ -568,7 +641,7 @@
                     resetRecaptcha(); // Reset for a new attempt
                     await sendOtp(userData.phone);
                 } else {
-                    showErrorMessage('Could not retrieve phone number. Please log in again.');
+                    showErrorMessage('Login failed. Please check your credentials.'); // Generic
                 }
             } catch (error) {
                 showErrorMessage('Failed to resend OTP. Please try again.');
