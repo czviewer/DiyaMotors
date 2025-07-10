@@ -547,7 +547,7 @@
                 const matchKey = Object.keys(snap.val())[0];
                 const matchedUser = snap.val()[matchKey];
 
-console.log("📦 OTP verified match:", matchedUser);
+                console.log("📦 OTP verified match:", matchedUser);
 
                 // 🚫 Check allowed roles
                 if (matchedUser.role !== "Admin" && matchedUser.role !== "Dev") {
@@ -571,22 +571,24 @@ console.log("📦 OTP verified match:", matchedUser);
                         role: matchedUser.role,
                         email: matchedUser.email || '',
                         phone: matchedUser.phone,
-                        id: matchedUser.id,
-                        branch: matchedUser.branch,
-                        subdivision: matchedUser.subdivision,
+                        id: matchedUser.id || '',
+                        branch: matchedUser.branch || '',
+                        subdivision: matchedUser.subdivision || '',
                         des: matchedUser.des || '',
                         boundDevice: matchedUser.boundDevice || ''
+
                     }),
                     db.ref(`branches/${matchedUser.branch}/subdivisions/${matchedUser.subdivision}/employees/${matchedUser.id}`).set({
                         name: matchedUser.name,
                         role: matchedUser.role,
                         email: matchedUser.email || '',
                         phone: matchedUser.phone,
-                        id: matchedUser.id,
-                        branch: matchedUser.branch,
-                        subdivision: matchedUser.subdivision,
+                        id: matchedUser.id || '',
+                        branch: matchedUser.branch || '',
+                        subdivision: matchedUser.subdivision || '',
                         des: matchedUser.des || '',
                         boundDevice: matchedUser.boundDevice || ''
+
                     })
                 ]);
 
