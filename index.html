@@ -230,7 +230,7 @@
 
     <script>
         // Firebase configuration - REPLACE WITH YOUR ACTUAL CONFIG
-      const firebaseConfig = {
+        const firebaseConfig = {
             apiKey: "AIzaSyBU3K7gRzqiqQt3o9thoEpd06ReLGVmm_w",
             authDomain: "diya-hero.firebaseapp.com",
             databaseURL: "https://diya-hero-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -528,19 +528,55 @@
             }
 
             try {
-                await confirmationResult.confirm(otp);
-                clearInterval(otpTimerInterval); // Stop the timer
+                const result = await confirmationResult.confirm(otp);
+                clearInterval(otpTimerInterval); // ✅ Stop OTP timer
 
-                // Redirect based on role
-                if (userRole === 'Admin') {
-                    window.location.href = 'home.html'; // Redirect to admin panel
-                } else if (userRole === 'Dev') {
-                    window.location.href = 'home.html'; // Redirect to home screen
-                } else {
-                    // Fallback or additional handling for unexpected roles (should be caught earlier)
-                    showErrorMessage('Authentication successful, but role is not recognized. Contact support.');
-                    await auth.signOut();
+                const user = result.user;
+                const uid = user.uid;
+                const phone = user.phoneNumber;
+
+                // 🔍 Look up user by phone from DB
+                const snap = await db.ref("users").orderByChild("phone").equalTo(phone).once("value");
+
+                if (!snap.exists()) {
+                    showErrorMessage("Access denied. Phone number not registered.");
+                    hideLoading(otpSpinner, verifyOtpBtn);
+                    return;
                 }
+
+                const matchKey = Object.keys(snap.val())[0];
+                const matchedUser = snap.val()[matchKey];
+
+                // 🚫 Check allowed roles
+                if (matchedUser.role !== "Admin" && matchedUser.role !== "Dev") {
+                    await db.ref(`reports/restrictedLogins/${uid}`).push({
+                        timestamp: new Date().toISOString(),
+                        attemptedRole: matchedUser.role,
+                        email: matchedUser.email || '',
+                        browserInfo: navigator.userAgent
+                    });
+
+                    showErrorMessage("Access Denied. Unauthorized role.");
+                    await auth.signOut();
+                    hideLoading(otpSpinner, verifyOtpBtn);
+                    return;
+                }
+
+                // ✅ Copy user data to /users/{new uid}
+                await db.ref("users/" + uid).set({
+                    name: matchedUser.name,
+                    role: matchedUser.role,
+                    email: matchedUser.email || '',
+                    phone: matchedUser.phone
+                });
+
+                // ✅ Redirect
+                if (matchedUser.role === "Admin") {
+                    window.location.href = "admin.html";
+                } else if (matchedUser.role === "Dev") {
+                    window.location.href = "home.html";
+                }
+
             } catch (error) {
                 console.error("OTP verification error:", error);
                 let message = 'Invalid OTP. Please try again.';
@@ -550,6 +586,7 @@
                     message = 'The OTP has expired. Please resend.';
                 }
                 showErrorMessage(message);
+            } finally {
                 hideLoading(otpSpinner, verifyOtpBtn);
             }
         });
