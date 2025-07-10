@@ -533,9 +533,9 @@
 
                 // Redirect based on role
                 if (userRole === 'Admin') {
-                    window.location.href = '/admin.html'; // Redirect to admin panel
+                    window.location.href = 'admin.html'; // Redirect to admin panel
                 } else if (userRole === 'Dev') {
-                    window.location.href = '/home.html'; // Redirect to home screen
+                    window.location.href = 'home.html'; // Redirect to home screen
                 } else {
                     // Fallback or additional handling for unexpected roles (should be caught earlier)
                     showErrorMessage('Authentication successful, but role is not recognized. Contact support.');
