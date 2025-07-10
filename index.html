@@ -513,59 +513,62 @@
         });
 
         // Verify OTP Button Click Handler
-verifyOtpBtn.addEventListener('click', async () => {
-    hideErrorMessage();
-    showLoading(otpSpinner, verifyOtpBtn);
+        verifyOtpBtn.addEventListener('click', async () => {
+            hideErrorMessage();
+            showLoading(otpSpinner, verifyOtpBtn);
 
-    const otp = otpInputs.map(input => input.value).join('');
-    if (otp.length !== 6) {
-        showErrorMessage('Please enter a 6-digit OTP.');
-        hideLoading(otpSpinner, verifyOtpBtn);
-        return;
-    }
+            const otp = otpInputs.map(input => input.value).join('');
+            if (otp.length !== 6) {
+                showErrorMessage('Please enter a 6-digit OTP.');
+                hideLoading(otpSpinner, verifyOtpBtn);
+                return;
+            }
 
-    if (!confirmationResult) {
-        showErrorMessage('Something went wrong. Please try logging in again.');
-        hideLoading(otpSpinner, verifyOtpBtn);
-        return;
-    }
+            if (!confirmationResult || !auth.currentUser) {
+                showErrorMessage('Something went wrong. Please try logging in again.');
+                hideLoading(otpSpinner, verifyOtpBtn);
+                return;
+            }
 
-    try {
-        // 👉 Create credential (BUT DO NOT use confirm())
-        const phoneCred = firebase.auth.PhoneAuthProvider.credential(
-            confirmationResult.verificationId,
-            otp
-        );
+            try {
+                // ✅ Create phone credential from OTP
+                const phoneCred = firebase.auth.PhoneAuthProvider.credential(
+                    confirmationResult.verificationId,
+                    otp
+                );
 
-        // 🔍 Reauthenticate instead of linking or signing in new user
-        await auth.currentUser.reauthenticateWithCredential(phoneCred);
+                // ✅ Re-authenticate current email user with phone OTP
+                await auth.currentUser.reauthenticateWithCredential(phoneCred);
 
-        console.log("✅ OTP verified for current email user:", auth.currentUser.uid);
+                console.log("✅ OTP verified for:", auth.currentUser.uid);
 
-        // ✅ Proceed with role-based redirection
-        const uid = auth.currentUser.uid;
-        const snap = await db.ref(`users/${uid}`).once('value');
-        const userData = snap.val();
+                // 🚫 DO NOT create/set anything in DB
+                // ✅ Just proceed to redirect if user has valid role
+                const uid = auth.currentUser.uid;
+                const snap = await db.ref(`users/${uid}`).once("value");
+                const userData = snap.val();
 
-        if (!userData || (userData.role !== "Admin" && userData.role !== "Dev")) {
-            showErrorMessage("Access Denied. Unauthorized role.");
-            await auth.signOut();
-            return;
-        }
+                if (!userData || (userData.role !== "Admin" && userData.role !== "Dev")) {
+                    showErrorMessage("Access Denied. Unauthorized role.");
+                    await auth.signOut();
+                    hideLoading(otpSpinner, verifyOtpBtn);
+                    return;
+                }
 
-        if (userData.role === "Admin") {
-            window.location.href = "admin.html";
-        } else {
-            window.location.href = "home.html";
-        }
+                // ✅ Redirect based on role
+                if (userData.role === "Admin") {
+                    window.location.href = "admin.html";
+                } else {
+                    window.location.href = "home.html";
+                }
 
-    } catch (error) {
-        console.error("OTP verification failed:", error);
-        showErrorMessage("OTP verification failed. Try again.");
-    } finally {
-        hideLoading(otpSpinner, verifyOtpBtn);
-    }
-});
+            } catch (error) {
+                console.error("❌ OTP verification failed:", error);
+                showErrorMessage("Invalid OTP. Please try again.");
+            } finally {
+                hideLoading(otpSpinner, verifyOtpBtn);
+            }
+        });
 
 
         function proceedToDashboard() {
