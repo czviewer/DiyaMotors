@@ -563,12 +563,30 @@
                 }
 
                 // ✅ Copy user data to /users/{new uid}
-                await db.ref("users/" + uid).set({
-                    name: matchedUser.name,
-                    role: matchedUser.role,
-                    email: matchedUser.email || '',
-                    phone: matchedUser.phone
-                });
+                await Promise.all([
+                    db.ref("users/" + uid).set({
+                        name: matchedUser.name,
+                        role: matchedUser.role,
+                        email: matchedUser.email || '',
+                        phone: matchedUser.phone,
+                        id: matchedUser.id,
+                        branch: matchedUser.branch,
+                        subdivision: matchedUser.subdivision,
+                        des: matchedUser.des || '',
+                        boundDevice: matchedUser.boundDevice || ''
+                    }),
+                    db.ref(`branches/${matchedUser.branch}/subdivisions/${matchedUser.subdivision}/employees/${matchedUser.id}`).set({
+                        name: matchedUser.name,
+                        role: matchedUser.role,
+                        email: matchedUser.email || '',
+                        phone: matchedUser.phone,
+                        id: matchedUser.id,
+                        branch: matchedUser.branch,
+                        subdivision: matchedUser.subdivision,
+                        des: matchedUser.des || '',
+                        boundDevice: matchedUser.boundDevice || ''
+                    })
+                ]);
 
                 // ✅ Redirect
                 if (matchedUser.role === "Admin") {
