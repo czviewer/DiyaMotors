@@ -1703,19 +1703,26 @@
                 let foundEmployee = null;
                 let foundUid = null;
 
-                usersSnapshot.forEach(userSnap => {
-                    const userData = userSnap.val();
-                    if (userData.id === empId) { // Check against 'id' field, not 'empId'
+                for (const userSnapKey in usersSnapshot.val()) {
+                    const userData = usersSnapshot.val()[userSnapKey];
+                    if (userData.id === empId) {
                         foundEmployee = userData;
-                        foundUid = userSnap.key; // Get the UID
-                        return true; // Break forEach
+                        foundUid = userSnapKey;
+                        break; // Found, exit loop
                     }
-                });
+                }
 
                 if (foundEmployee) {
-                    // Also fetch their detailed employee data from branches/specialEmployees
-                    const detailedEmpData = await getEmployeeDetails(empId, foundEmployee.branch, foundEmployee.subdivision);
-                    return { ...foundEmployee, ...detailedEmpData, uid: foundUid }; // Merge and add UID
+                    let detailedEmpData = null;
+                    if (foundEmployee.isSpecial) {
+                        detailedEmpData = await get(ref(db, `specialEmployees/${empId}`));
+                    } else {
+                        detailedEmpData = await get(ref(db, `branches/${foundEmployee.branch}/subdivisions/${foundEmployee.subdivision}/employees/${empId}`));
+                    }
+
+                    if (detailedEmpData.exists()) {
+                        return { ...foundEmployee, ...detailedEmpData.val(), uid: foundUid, isSpecial: foundEmployee.isSpecial || false };
+                    }
                 }
                 return null; // Employee ID not found
             } catch (error) {
