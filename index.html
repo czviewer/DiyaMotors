@@ -585,31 +585,6 @@
                 }
 
                 // ✅ Copy user data to /users/{new uid}
-                await Promise.all([
-                    db.ref("users/" + matchKey).set({
-                        name: matchedUser.name,
-                        role: matchedUser.role || "Admin",
-                        email: matchedUser.email || '',
-                        phone: matchedUser.phone,
-                        id: matchedUser.id || '',
-                        branch: matchedUser.branch || '',
-                        subdivision: matchedUser.subdivision || '',
-                        des: matchedUser.des || '',
-                        boundDevice: matchedUser.boundDevice || ''
-                    }),
-                    db.ref(`branches/${matchedUser.branch || 'undefinedBranch'}/subdivisions/${matchedUser.subdivision || 'undefinedSub'}/employees/${matchedUser.id || 'unknownId'}`).set({
-                        name: matchedUser.name,
-                        role: matchedUser.role || "Admin",
-                        email: matchedUser.email || '',
-                        phone: matchedUser.phone,
-                        id: matchedUser.id || '',
-                        branch: matchedUser.branch || '',
-                        subdivision: matchedUser.subdivision || '',
-                        des: matchedUser.des || '',
-                        boundDevice: matchedUser.boundDevice || '',
-                        uid: matchKey  // ✅ Store the correct original UID
-                    })
-                ]);
 
                 // ✅ Redirect
                 if (matchedUser.role === "Admin") {
