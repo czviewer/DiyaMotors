@@ -392,7 +392,8 @@
                     'size': 'invisible', // Invisible reCAPTCHA
                     'callback': (response) => {
                         // reCAPTCHA solved, now send OTP
-                        sendOtp(phoneNumber);
+                        // This callback might not always fire immediately for invisible recaptcha
+                        // The explicit call after render() handles this.
                     },
                     'expired-callback': () => {
                         showErrorMessage('reCAPTCHA expired. Please try again.');
@@ -404,14 +405,9 @@
                     }
                 });
 
-                // Render reCAPTCHA
+                // Render reCAPTCHA and then explicitly call sendOtp
                 await window.recaptchaVerifier.render();
-
-                // Trigger OTP sending via reCAPTCHA callback
-                // The actual sendOtp function will be called by the reCAPTCHA callback
-                // We need to explicitly call it here if reCAPTCHA is invisible and auto-executes
-                // For invisible, it might execute immediately. If not, the callback will handle it.
-                // For now, we'll let the callback handle it.
+                sendOtp(phoneNumber); // Explicitly call sendOtp after reCAPTCHA renders
 
             } catch (error) {
                 console.error("Login error:", error);
@@ -424,7 +420,8 @@
                     message = 'Too many failed login attempts. Please try again later.';
                 }
                 showErrorMessage(message);
-                hideLoading(loginSpinner, loginBtn);
+            } finally {
+                hideLoading(loginSpinner, loginBtn); // Ensure spinner is hidden in all cases
             }
         });
 
