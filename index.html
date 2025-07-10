@@ -513,73 +513,59 @@
         });
 
         // Verify OTP Button Click Handler
-        verifyOtpBtn.addEventListener('click', async () => {
-            hideErrorMessage();
-            showLoading(otpSpinner, verifyOtpBtn);
+verifyOtpBtn.addEventListener('click', async () => {
+    hideErrorMessage();
+    showLoading(otpSpinner, verifyOtpBtn);
 
-            const otp = otpInputs.map(input => input.value).join('');
-            if (otp.length !== 6) {
-                showErrorMessage('Please enter a 6-digit OTP.');
-                hideLoading(otpSpinner, verifyOtpBtn);
-                return;
-            }
+    const otp = otpInputs.map(input => input.value).join('');
+    if (otp.length !== 6) {
+        showErrorMessage('Please enter a 6-digit OTP.');
+        hideLoading(otpSpinner, verifyOtpBtn);
+        return;
+    }
 
-            if (!confirmationResult || !emailUID) {
-                showErrorMessage('Something went wrong. Please try logging in again.');
-                hideLoading(otpSpinner, verifyOtpBtn);
-                return;
-            }
+    if (!confirmationResult) {
+        showErrorMessage('Something went wrong. Please try logging in again.');
+        hideLoading(otpSpinner, verifyOtpBtn);
+        return;
+    }
 
-            try {
-                // ✅ Just confirm OTP — we don't use result.user or link anything
-                await confirmationResult.confirm(otp);
-                clearInterval(otpTimerInterval);
+    try {
+        // 👉 Create credential (BUT DO NOT use confirm())
+        const phoneCred = firebase.auth.PhoneAuthProvider.credential(
+            confirmationResult.verificationId,
+            otp
+        );
 
-                // ✅ Re-fetch user details using original email UID
-                const snap = await db.ref("users/" + emailUID).once("value");
-                const userData = snap.val();
+        // 🔍 Reauthenticate instead of linking or signing in new user
+        await auth.currentUser.reauthenticateWithCredential(phoneCred);
 
-                if (!userData) {
-                    showErrorMessage("Access denied. User data not found.");
-                    await auth.signOut();
-                    hideLoading(otpSpinner, verifyOtpBtn);
-                    return;
-                }
+        console.log("✅ OTP verified for current email user:", auth.currentUser.uid);
 
-                if (userData.role !== "Admin" && userData.role !== "Dev") {
-                    await db.ref(`reports/restrictedLogins/${emailUID}`).push({
-                        timestamp: new Date().toISOString(),
-                        attemptedRole: userData.role || "N/A",
-                        email: userData.email || '',
-                        browserInfo: navigator.userAgent
-                    });
+        // ✅ Proceed with role-based redirection
+        const uid = auth.currentUser.uid;
+        const snap = await db.ref(`users/${uid}`).once('value');
+        const userData = snap.val();
 
-                    showErrorMessage("Access Denied. Unauthorized role.");
-                    await auth.signOut();
-                    hideLoading(otpSpinner, verifyOtpBtn);
-                    return;
-                }
+        if (!userData || (userData.role !== "Admin" && userData.role !== "Dev")) {
+            showErrorMessage("Access Denied. Unauthorized role.");
+            await auth.signOut();
+            return;
+        }
 
-                // ✅ Role verified, redirect accordingly
-                if (userData.role === "Admin") {
-                    window.location.href = "admin.html";
-                } else if (userData.role === "Dev") {
-                    window.location.href = "home.html";
-                }
+        if (userData.role === "Admin") {
+            window.location.href = "admin.html";
+        } else {
+            window.location.href = "home.html";
+        }
 
-            } catch (error) {
-                console.error("OTP verification error:", error);
-                let message = 'Invalid OTP. Please try again.';
-                if (error.code === 'auth/invalid-verification-code') {
-                    message = 'The verification code is invalid.';
-                } else if (error.code === 'auth/code-expired') {
-                    message = 'The OTP has expired. Please resend.';
-                }
-                showErrorMessage(message);
-            } finally {
-                hideLoading(otpSpinner, verifyOtpBtn);
-            }
-        });
+    } catch (error) {
+        console.error("OTP verification failed:", error);
+        showErrorMessage("OTP verification failed. Try again.");
+    } finally {
+        hideLoading(otpSpinner, verifyOtpBtn);
+    }
+});
 
 
         function proceedToDashboard() {
