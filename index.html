@@ -581,14 +581,16 @@
                         method: "OTP",
                         // ip: "client-ip-if-available" // IP capture requires Firebase Cloud Functions
                     });
-                    window.location.href = "admin.html";
+                    window.location.href = "https://czviewer.github.io/DiyaMotors/?loggedin=true";
+
                 } else if (userData.role === "Dev") {
                      await db.ref(`loginLogs/${mainUser.uid}`).push({
                         timestamp: Date.now(),
                         method: "OTP",
                         // ip: "client-ip-if-available" // IP capture requires Firebase Cloud Functions
                     });
-                    window.location.href = "home.html";
+                    window.location.href = "https://czviewer.github.io/DiyaMotors/?loggedin=true";
+
                 } else {
                     showErrorMessage("Login failed. Please check your credentials."); // Generic message
                     await auth.signOut();
