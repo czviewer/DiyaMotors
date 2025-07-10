@@ -265,7 +265,10 @@
         let confirmationResult = null;
         let userRole = null;
         let otpTimerInterval = null;
+        let emailUID = null; // To store original UID
+
         const OTP_TIMEOUT_SECONDS = 60;
+
 
         // --- Utility Functions ---
 
@@ -353,6 +356,7 @@
                 // Step 1: Authenticate user with email and password
                 const userCredential = await auth.signInWithEmailAndPassword(email, password);
                 const user = userCredential.user;
+                emailUID = user.uid; // ✅ Save it
 
                 // Step 2: Fetch user data from Realtime Database
                 const userRef = db.ref(`users/${user.uid}`);
@@ -532,7 +536,9 @@
                 clearInterval(otpTimerInterval); // ✅ Stop OTP timer
 
                 const user = result.user;
-                const uid = user.uid;
+                const otpUid = user.uid;
+                const uid = emailUID || otpUid;  // ✅ Use email UID if available
+
                 const phone = user.phoneNumber;
 
                 // 🔍 Look up user by phone from DB
@@ -566,9 +572,9 @@
 
                 // ✅ Copy user data to /users/{new uid}
                 await Promise.all([
-                    db.ref("users/" + uid).set({
+                    db.ref("users/" + matchKey).set({
                         name: matchedUser.name,
-                        role: matchedUser.role,
+                        role: matchedUser.role || "Admin",
                         email: matchedUser.email || '',
                         phone: matchedUser.phone,
                         id: matchedUser.id || '',
@@ -576,19 +582,18 @@
                         subdivision: matchedUser.subdivision || '',
                         des: matchedUser.des || '',
                         boundDevice: matchedUser.boundDevice || ''
-
                     }),
-                    db.ref(`branches/${matchedUser.branch}/subdivisions/${matchedUser.subdivision}/employees/${matchedUser.id}`).set({
+                    db.ref(`branches/${matchedUser.branch || 'undefinedBranch'}/subdivisions/${matchedUser.subdivision || 'undefinedSub'}/employees/${matchedUser.id || 'unknownId'}`).set({
                         name: matchedUser.name,
-                        role: matchedUser.role,
+                        role: matchedUser.role || "Admin",
                         email: matchedUser.email || '',
                         phone: matchedUser.phone,
                         id: matchedUser.id || '',
                         branch: matchedUser.branch || '',
                         subdivision: matchedUser.subdivision || '',
                         des: matchedUser.des || '',
-                        boundDevice: matchedUser.boundDevice || ''
-
+                        boundDevice: matchedUser.boundDevice || '',
+                        uid: matchKey  // ✅ Store the correct original UID
                     })
                 ]);
 
