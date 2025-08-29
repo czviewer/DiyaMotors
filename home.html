@@ -1,0 +1,1991 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Home | Diya Group</title>
+
+    <!-- Firebase CDN Imports: These must load first for Firebase to be available -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <style>
+        /* Modern Style for Attendance Datepicker */
+        #date-select {
+            padding: 9px 10px;
+            border: 2px solid #4a90e2;
+            border-radius: 8px;
+            background-color: #fff;
+            font-size: 14px;
+            color: #333;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Hover effect */
+        #date-select:hover {
+            border-color: #357ABD;
+        }
+
+        /* Focus effect */
+        #date-select:focus {
+            border-color: #357ABD;
+            box-shadow: 0 0 8px rgba(53, 122, 189, 0.4);
+        }
+
+        /* Optional: change calendar icon color for modern feel */
+        #date-select::-webkit-calendar-picker-indicator {
+            filter: invert(48%) sepia(85%) saturate(500%) hue-rotate(190deg) brightness(95%) contrast(90%);
+            cursor: pointer;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #b0bbca;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #003366;
+            color: white;
+            padding: 10px 20px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: inherit;
+            gap: 11px;
+            row-gap: 16px;
+            column-gap: 10px;
+        }
+
+        .logo-img {
+            height: 60px;
+        }
+
+        .app-name {
+            font-size: 26px;
+            font-weight: bold;
+        }
+
+        .clock-container {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-group select,
+        .control-group button {
+            padding: 8px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        .attendance-table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        th {
+            background-color: #003366;
+            color: white;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Force all dropdowns, datepicker, and button into one horizontal row */
+        #controls-section {
+            display: flex;
+            align-items: center;
+            /* align vertically */
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Ensure selects, date picker, and buttons match height */
+        #controls-section select,
+        #controls-section input[type="date"],
+        #controls-section button {
+            height: 38px;
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        /* Remove label-above style for the top bar */
+        #controls-section .control-group {
+            flex-direction: row;
+            /* label + select in same row */
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+        }
+
+        #controls-section .control-group label {
+            margin-bottom: 0;
+            /* remove the gap meant for vertical layout */
+            font-size: 14px;
+        }
+
+
+        /* Styles for radio button appearance */
+        .radio-group input[type="radio"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .radio-group input[type="radio"]:checked {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .radio-group input[type="radio"]:checked::before {
+            content: '';
+            display: block;
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .radio-group input[type="radio"]:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+            background-color: #eee;
+        }
+
+        .radio-group input[type="radio"]:disabled:checked {
+            background-color: #a0a0a0;
+            border-color: #a0a0a0;
+        }
+
+
+        .summary-section {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+
+        .summary-item {
+            background-color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-count {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .count-full {
+            color: green;
+        }
+
+        .count-half {
+            color: orange;
+        }
+
+        .count-absent {
+            background-color: #ffcfcf;
+            color: red;
+            font-weight: bold;
+        }
+
+
+        .count-late {
+            color: #ff3300;
+        }
+
+        .save-section {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .save-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: green;
+            color: white;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .save-btn:disabled {
+            background-color: gray;
+            cursor: not-allowed;
+        }
+
+        .status-badge {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        .status-full {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .status-half {
+            background-color: #ffc107;
+            color: black;
+        }
+
+        .status-absent {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .late-indicator {
+            color: red;
+            font-weight: bold;
+        }
+
+        input[type="checkbox"]:disabled {
+            background-color: #0052f5 !important;
+            border: 1px solid #f70a0aad;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        #user-badge {
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: hsl(0, 86%, 39%);
+            font-family: "Segoe UI", sans-serif;
+            font-size: 13px;
+            line-height: 1.4;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            min-width: 150px;
+        }
+
+        #user-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #03feedd1;
+        }
+
+        #branch-info {
+            font-size: 12px;
+            color: #ffffff;
+        }
+
+        .user-badge-dev {
+            background-color: #6f42c1;
+            border-left: 4px solid #6f42c1;
+        }
+
+        .user-badge-admin {
+            background-color: #31d8ae;
+            border-left: 44px solid #010d18;
+        }
+
+        .user-badge-branch {
+            background-color: #28a745;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .top-bar-dev {
+            background-color: #5e35b1;
+        }
+
+        .top-bar-admin {
+            background-color: #3f0e0e00;
+        }
+
+        .top-bar-branch {
+            background-color: #2e7d32;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+            color: #333;
+        }
+
+        .btn:hover {
+            background-color: #e9e9e9;
+        }
+
+        #admin-panel-btn {
+            background-color: #374785;
+            color: white;
+            padding: 6px 14px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        #admin-panel-btn:hover {
+            background-color: #2c3769;
+        }
+
+        #logout-btn {
+            border-color: #d9534f;
+            background-color: #f8d7da;
+            color: #a94442;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4.5px 20px;
+            background-color: #e1e1e1;
+            color: #333;
+            font-family: 'Segoe UI', sans-serif;
+            border-bottom: 1px solid #000000;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+        }
+
+        .logo img {
+            height: 55px;
+        }
+
+        #save-btn {
+            background-color: #d32f2f;
+            color: #fff;
+            padding: 8px 18px;
+            border: none;
+            font-weight: 600;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        #save-btn:hover {
+            background-color: #b71c1c;
+        }
+
+        .user-badge {
+            width: auto;
+            max-width: 10%;
+            white-space: nowrap;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background-color: #000000;
+            color: #333;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(10, 218, 55, 0.06);
+            border-left: 4px solid transparent;
+        }
+
+        /* Styles for the custom message box */
+        .app-message-box {
+            position: fixed;
+            top: 0;
+            /* Changed from 50% */
+            left: 0;
+            /* Changed from 50% */
+            width: 100%;
+            /* Added */
+            height: 100%;
+            /* Added */
+            transform: none;
+            /* Removed transform */
+            display: flex;
+            /* Added for centering content */
+            align-items: center;
+            /* Added for centering content */
+            justify-content: center;
+            /* Added for centering content */
+            background-color: rgba(0, 0, 0, 0.95);
+            /* More opaque */
+            color: white;
+            padding: 20px 30px;
+            border-radius: 0;
+            /* Removed border-radius */
+            box-shadow: none;
+            /* Removed box-shadow */
+            z-index: 9999;
+            /* Increased z-index */
+            font-size: 1.8em;
+            /* Larger font */
+            text-align: center;
+            animation: fadeIn 0.3s ease-out;
+            flex-direction: column;
+            /* For button below text */
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .app-message-box button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            /* Larger padding */
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 25px;
+            /* More margin */
+            font-size: 0.8em;
+            /* Relative font size */
+        }
+
+        .dropdown-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            /* space between dropdowns */
+            margin-bottom: 10px;
+        }
+
+        .dropdown-row label {
+            font-weight: bold;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .dropdown-row select {
+            height: 32px;
+            padding: 4px 8px;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
+        .controls {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            /* spacing between each group */
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            /* stack label above select */
+            margin: 0;
+            min-width: 180px;
+            /* make dropdown widths consistent */
+        }
+
+
+
+        .control-group select,
+        .control-group button {
+            height: 38px;
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            margin-bottom: 6px;
+            /* space between label and dropdown */
+            font-size: 14px;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="header-container"></div>
+
+    <div class="container">
+        <div class="controls" id="controls-section" style="display: none;">
+
+            <div class="control-group">
+                <label for="district-dropdown">District</label>
+                <select id="district-dropdown">
+                    <option value="">Select District</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="branch-select">Branch</label>
+                <select id="branch-select">
+                    <option value="">Select Branch</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="subdivision-select">Sub-division</label>
+                <select id="subdivision-select" disabled>
+                    <option value="">Select Sub-division</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="date-select">Attendance Date</label>
+                <input type="date" id="date-select" />
+            </div>
+
+
+            <div class="control-group">
+
+                <button id="load-btn" class="btn" style="background-color: #007bff; color: white;">Load
+                    Employees</button>
+            </div>
+        </div>
+
+        <div class="attendance-table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee Name</th>
+                        <th>Morning ✅</th>
+                        <th>Afternoon Status</th>
+                        <th>Exit ✅</th>
+                        <th>Status</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody id="attendance-table-body">
+                </tbody>
+            </table>
+        </div>
+        <div class="summary-section">
+            <div class="summary-item">
+                <div class="summary-count count-full" id="full-day-count">0</div>
+                <div class="summary-label">Full Day</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-count count-half" id="half-day-count">0</div>
+                <div class="summary-label">Half Day</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-count count-absent" id="absent-count">0</div>
+                <div class="summary-label">Absent</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-count count-late" id="late-count">0</div>
+                <div class="summary-label">Late Arrivals</div>
+            </div>
+        </div>
+
+        <div class="save-section">
+            <button id="save-btn" class="btn btn-success save-btn">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                    <path
+                        d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1H2z" />
+                </svg>
+                Save
+            </button>
+        </div>
+
+
+    </div>
+
+    <script>
+        // --- VERY EARLY SCRIPT EXECUTION LOG ---
+        console.log("HOME.HTML: Script parsing started.");
+
+        // ✅ 1. Firebase Configuration and Initialization
+        // This block must be at the very top of your script to ensure Firebase is ready.
+        const firebaseConfig = {
+            apiKey: "AIzaSyBU3K7gRzqiqQt3o9thoEpd06ReLGVmm_w", // Ensure this is your correct API key
+            authDomain: "diya-hero.firebaseapp.com",
+            databaseURL: "https://diya-hero-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "diya-hero",
+            storageBucket: "diya-hero.firebasestorage.app",
+            messagingSenderId: "455829653263",
+            appId: "1:455829653263:web:5a31c65bdab2b9cee0607a",
+            measurementId: "G-DZYHPLQD3F"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        // ✅ 2. Define auth and db objects immediately after initialization
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        // Global variables for application state
+        let allowedBranches = [];
+        let currentUser = null;
+        let userRole = '';
+        let isDevOrAdmin = false;
+        let userBranch = '';
+        let userSubdivision = '';
+        let employees = [];
+        let attendanceData = {};
+        let triggeredByAutoSave = false;
+        let autoSavedAfter3 = false; // Flag to prevent multiple auto-saves within the same day
+
+        /**
+         * Displays a message on the screen and then redirects to index.html after a delay.
+         * @param {string} message - The message to display.
+         * @param {number} delay - The delay in milliseconds before redirection.
+         */
+        function displayMessageAndRedirect(message, delay = 2000) { // Increased delay
+            console.log(`[REDIRECTING] ${message}`); // Log before displaying
+            const messageBox = document.createElement('div');
+            messageBox.className = 'app-message-box';
+            messageBox.textContent = message;
+            document.body.appendChild(messageBox); // Append immediately
+
+            setTimeout(() => {
+                messageBox.remove(); // Remove the message box
+                window.location.href = 'index.html';
+            }, delay);
+        }
+
+        /**
+         * Displays a confirmation dialog using a custom modal.
+         * @param {string} message - The message to display in the confirmation.
+         * @returns {Promise<boolean>} A promise that resolves to true if confirmed, false otherwise.
+         */
+        function showConfirmDialog(message) {
+            return new Promise(resolve => {
+                const messageBox = document.createElement('div');
+                messageBox.className = 'app-message-box';
+                messageBox.innerHTML = `
+                    <p>${message}</p>
+                    <button id="confirm-yes">Yes</button>
+                    <button id="confirm-no">No</button>
+                `;
+                document.body.appendChild(messageBox);
+
+                document.getElementById('confirm-yes').onclick = () => {
+                    messageBox.remove();
+                    resolve(true);
+                };
+                document.getElementById('confirm-no').onclick = () => {
+                    messageBox.remove();
+                    resolve(false);
+                };
+            });
+        }
+
+
+        /**
+         * Loads the branches that the current user is allowed to access.
+         * Admin/Dev users have unrestricted access (allowedBranches = null).
+         * Branch users have access to branches specified in their user data.
+         * This function should only be called after user authentication is confirmed.
+         */
+        async function loadUserAndSetupDropdowns() {
+            const user = auth.currentUser;
+            if (!user) {
+                console.log("No authenticated user, returning.");
+                return;
+            }
+
+            try {
+                const snap = await db.ref(`users/${user.uid}`).once("value");
+                const userData = snap.val();
+                console.log("User data fetched:", userData);
+
+                if (!userData) {
+                    console.warn("No user data found for UID:", user.uid);
+                    displayMessageAndRedirect("User data not found. Please contact admin.");
+                    return;
+                }
+
+                userRole = userData.role;
+
+                const districtGroup = document.querySelector('label[for="district-dropdown"]').parentElement;
+                const branchGroup = document.querySelector('label[for="branch-select"]').parentElement;
+
+                if (userRole === "Admin" || userRole === "Dev") {
+                    // Admin/Dev: show district dropdown
+                    districtGroup.style.display = "block";
+                    branchGroup.style.display = "block";
+                    loadDistricts(); // You must have a function to populate from /district node
+
+                } else if (userRole === "BranchAdmin") {
+                    districtGroup.style.display = "none";
+
+                    const branchesArray = Array.isArray(userData.branches)
+                        ? userData.branches
+                        : (userData.branch ? [userData.branch] : []);
+                    allowedBranches = branchesArray;
+
+
+
+
+                    // ✅ Store in the global variable so the rest of the app can use it
+                    allowedBranches = branchesArray;
+
+                    if (branchesArray.length === 0) {
+                        console.warn("BranchAdmin has no assigned branches.");
+                        displayMessageAndRedirect("No branches assigned to your account.");
+                        return;
+                    }
+
+                    const branchSelect = document.getElementById("branch-select");
+                    branchSelect.innerHTML = ""; // clear options
+
+                    if (branchesArray.length === 1) {
+                        // Only one branch → hide dropdown & auto-load employees
+                        branchSelect.parentElement.style.display = "none";
+                        branchSelect.value = branchesArray[0];
+                        loadEmployees(branchesArray[0]);
+                    } else {
+                        // Multiple allowed branches → populate dropdown
+                        branchesArray.forEach(b => {
+                            const opt = document.createElement("option");
+                            opt.value = b;
+                            opt.textContent = b;
+                            branchSelect.appendChild(opt);
+                        });
+                        branchSelect.parentElement.style.display = "block";
+                    }
+                } else {
+                    console.warn("Unknown role or no permission:", userRole);
+                    displayMessageAndRedirect("Your role does not allow access.");
+                }
+
+            } catch (error) {
+                console.error("Error loading user data:", error);
+                displayMessageAndRedirect("Error loading user data. Try again.");
+            }
+        }
+
+
+
+        /**
+         * Updates the live clock display in the header.
+         */
+        function updateClock() {
+            const now = new Date();
+            const hoursRaw = now.getHours();
+            const hours = hoursRaw % 12 || 12;
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const ampm = hoursRaw >= 12 ? 'PM' : 'AM';
+
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+
+            const fullClock = `${hours}:${minutes}:${seconds} ${ampm} | ${day}-${month}-${year}`;
+
+            const clockEl = document.getElementById('live-clock');
+            if (clockEl) {
+                clockEl.textContent = fullClock;
+            }
+        }
+
+        /**
+         * Determines if the current time is past 9:35 AM, indicating a late arrival.
+         * @returns {boolean} True if current time is after 9:35 AM.
+         */
+        function isLateNow() {
+            const now = new Date();
+            const h = now.getHours();
+            const m = now.getMinutes();
+            return h > 9 || (h === 9 && m >= 36); // Late after 9:35 AM
+        }
+
+        /**
+         * Capitalizes the first letter of a string.
+         * @param {string} str - The input string.
+         * @returns {string} The capitalized string.
+         */
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        /**
+         * Calculates the attendance status (Full Day, Half Day, Absent, Pending)
+         * and any relevant remarks based on employee attendance data and current time.
+         * @param {object} data - The attendance data for an employee.
+         * @returns {{type: string, text: string, remarks: string[]}} The calculated status.
+         */
+        function calculateStatus(data) {
+            const now = new Date();
+            const h = now.getHours();
+            const m = now.getMinutes();
+            const after3PM = h >= 15; // After or at 3:00 PM
+
+            const morningMarked = data.morning === true;
+            const afternoonStatus = data.afternoon || 'None'; // 'Enters' | 'Leaves' | 'None'
+            const anExitMarked = data.anExit === true;
+            const anExitTimeDate = data.anExitTime ? new Date(data.anExitTime) : null;
+
+            const isExitAtOrAfter3PM = anExitTimeDate && anExitTimeDate.getHours() >= 15;
+
+            let remarks = [];
+            if (anExitMarked) {
+                remarks.push("Exit Marked");
+            }
+
+            if (morningMarked && data.morningTime) {
+                const morningDate = new Date(data.morningTime);
+                const morningHour = morningDate.getHours();
+                const morningMinute = morningDate.getMinutes();
+                if (morningHour > 9 || (morningHour === 9 && morningMinute > 35)) {
+                    remarks.push("LATE COMING");
+                }
+            }
+
+            // FULL DAY
+            if (morningMarked && anExitMarked && isExitAtOrAfter3PM && (afternoonStatus === 'None' || afternoonStatus === null)) {
+                return { type: 'full', text: 'Full Day', remarks: remarks };
+            }
+
+            // HALF DAY
+            if (morningMarked && afternoonStatus === 'Leaves') {
+                remarks.push("Left Early");
+                return { type: 'half', text: 'Half Day', remarks: remarks };
+            }
+            if (morningMarked && (afternoonStatus === 'None' || afternoonStatus === null) && !anExitMarked) {
+                if (after3PM) {
+                    remarks.push("Fallback AN = Absent");
+                    return { type: 'half', text: 'Half Day', remarks: remarks };
+                } else {
+                    return { type: 'pending', text: 'Pending', remarks: remarks };
+                }
+            }
+            if (!morningMarked && afternoonStatus === 'Enters' && anExitMarked) {
+                remarks.push("Came Afternoon Only");
+                return { type: 'half', text: 'Half Day', remarks: remarks };
+            }
+
+            // ABSENT
+            if (!morningMarked && afternoonStatus === 'Enters' && !anExitMarked) {
+                remarks.push("Joined but no Exit — Marked Absent");
+                return { type: 'absent', text: 'Absent', remarks: remarks };
+            }
+            if (!morningMarked && (afternoonStatus === 'None' || afternoonStatus === null) && after3PM) {
+                return { type: 'absent', text: 'Absent', remarks: remarks };
+            }
+
+            // Default to Pending if no specific status matches yet and it's before 3PM
+            if (!after3PM) {
+                return { type: 'pending', text: 'Pending', remarks: remarks };
+            }
+
+            // If none of the above, and it's after 3PM, it's Absent
+            return { type: 'absent', text: 'Absent', remarks: remarks };
+        }
+
+
+        /**
+         * Updates the summary counts (Full Day, Half Day, Absent, Late Arrivals)
+         * based on the current attendance data.
+         */
+        async function updateSummary() {
+            let full = 0, half = 0, absent = 0, late = 0;
+
+            for (const id in attendanceData) {
+                const data = attendanceData[id];
+                const result = calculateStatus(data);
+
+                if (result.type === 'full') full++;
+                else if (result.type === 'half') half++;
+                else if (result.type === 'absent') absent++;
+
+                if (result.remarks.includes("LATE COMING")) {
+                    late++;
+                }
+            }
+
+            fullDayCount.textContent = full;
+            halfDayCount.textContent = half;
+            absentCountEl.textContent = absent;
+            lateCount.textContent = late;
+        }
+
+        /**
+         * Renders (or re-renders) the attendance table dynamically based on
+         * the 'employees' and 'attendanceData' global variables.
+         * Applies time-based and role-based disabling logic to inputs.
+         */
+        async function renderAttendanceTable() {
+            tableBody.innerHTML = '';
+
+            const nowTime = new Date();
+            const currentHour = nowTime.getHours();
+            const currentMinute = nowTime.getMinutes();
+
+            const after12PM = currentHour >= 12; // After or at 12:00 PM
+            /* Between 3:00 PM (inclusive) and 6:45 PM (exclusive) */
+            const between3PMAnd645PM = (currentHour > 15 || (currentHour === 15 && currentMinute >= 0)) && (currentHour < 18 || (currentHour === 18 && currentMinute < 45));
+
+            const isPrivilegedUser = (userRole === 'Dev' || userRole === 'Admin' || userRole === 'BranchAdmin');
+
+
+            for (const emp of employees) {
+                const row = document.createElement('tr');
+                const data = attendanceData[emp.id];
+
+                // Employee Name Cell
+                const nameCell = document.createElement('td');
+                nameCell.textContent = emp.name;
+
+                // Morning Checkbox Cell
+                const morningCell = document.createElement('td');
+                const morningCheckbox = document.createElement('input');
+                morningCheckbox.type = 'checkbox';
+                morningCheckbox.id = `morning-check-${emp.id}`;
+                morningCheckbox.checked = data.morning;
+                // Disable if locked or past 12 PM for non-privileged users
+                morningCheckbox.disabled = !isPrivilegedUser && (data.morningLocked || after12PM);
+                morningCheckbox.addEventListener('change', () => {
+                    data.morning = morningCheckbox.checked;
+                    data.morningTime = data.morning
+                        ? (data.morningTime || data.defaultTimes.morning)
+                        : null;
+                    data.late = data.morning && isLateNow();
+                    renderAttendanceTable();
+                });
+
+                morningCell.appendChild(morningCheckbox);
+
+                // Afternoon Status Radio Buttons Cell
+                const anCell = document.createElement('td');
+                const anGroup = document.createElement('div');
+                anGroup.className = 'radio-group';
+
+                if (!data.afternoon || !['Enters', 'Leaves', 'None'].includes(data.afternoon)) {
+                    data.afternoon = 'None'; // Default to 'None' if invalid or missing
+                }
+
+                for (const status of ['Enters', 'Leaves', 'None']) {
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = `an-status-${emp.id}`;
+                    radio.id = `an-${emp.id}-${status}`;
+                    radio.value = status;
+                    radio.checked = data.afternoon === status;
+
+                    if (!isPrivilegedUser) {
+                        radio.disabled = data.anLocked === true; // If already locked by save
+                        if (!radio.disabled) { // Apply time-based rules if not locked
+                            if (!after12PM) {
+                                radio.disabled = true; // Disable before 12 PM
+                            } else if (data.morning && status === 'Enters') {
+                                radio.disabled = true; // Cannot "Enter" afternoon if already marked morning
+                            } else if (!data.morning && status === 'Leaves') {
+                                radio.disabled = true; // Cannot "Leave" afternoon if not marked morning
+                            }
+                        }
+                    }
+
+                    radio.addEventListener('change', () => {
+                        data.afternoon = status;
+                        data.anTime = (status === 'Enters' || status === 'Leaves')
+                            ? (data.anTime || data.defaultTimes.afternoon)
+                            : null;
+                        renderAttendanceTable();
+                    });
+
+                    const label = document.createElement('label');
+                    label.htmlFor = `an-${emp.id}-${status}`;
+                    label.appendChild(radio);
+                    label.appendChild(document.createTextNode(" " + status));
+                    anGroup.appendChild(label);
+                }
+                anCell.appendChild(anGroup);
+
+                // Exit Checkbox Cell (NEW)
+                const exitCell = document.createElement('td');
+                const exitCheckbox = document.createElement('input');
+                exitCheckbox.type = 'checkbox';
+                exitCheckbox.id = `exit-check-${emp.id}`;
+                exitCheckbox.checked = data.anExit === true;
+                exitCheckbox.className = 'exit-check';
+
+                if (isPrivilegedUser) {
+                    exitCheckbox.disabled = false; // Admins/Devs/BranchAdmins can always edit
+                } else {
+                    exitCheckbox.disabled = data.anExit === true || data.afternoon === 'Leaves'; // Disable if already marked or AN is 'Leaves'
+                    if (!exitCheckbox.disabled) { // Apply time-based rules if not already disabled
+                        exitCheckbox.disabled = !between3PMAnd645PM ||
+                            (!data.morning && data.afternoon !== 'Enters') || // No valid entry to exit from
+                            (data.morning && data.afternoon === 'Enters'); // Invalid state for exit if morning & entered AN
+                    }
+                }
+
+                exitCheckbox.addEventListener('change', () => {
+                    data.anExit = exitCheckbox.checked;
+                    data.anExitTime = data.anExit
+                        ? (data.anExitTime || data.defaultTimes.exit)
+                        : null;
+                    renderAttendanceTable();
+                });
+
+                const exitLabel = document.createElement('label');
+                exitLabel.htmlFor = `exit-check-${emp.id}`;
+                exitLabel.appendChild(exitCheckbox);
+                exitLabel.appendChild(document.createTextNode(" Exit ✅"));
+                exitCell.appendChild(exitLabel);
+
+
+                // Attendance Status Cell
+                const statusCell = document.createElement('td');
+                const badge = document.createElement('span');
+                const statusResult = calculateStatus(data);
+                badge.className = `status-badge status-${statusResult.type}`;
+                badge.textContent = statusResult.text;
+                statusCell.appendChild(badge);
+
+                // Remarks Cell
+                const remarksCell = document.createElement('td');
+                if (statusResult.remarks && statusResult.remarks.length > 0) {
+                    statusResult.remarks.forEach(remarkText => {
+                        const remarkDiv = document.createElement('div');
+                        remarkDiv.textContent = remarkText;
+                        if (remarkText.includes("LATE COMING")) {
+                            remarkDiv.className = 'late-indicator';
+                        } else if (remarkText.includes("Joined but no Exit")) {
+                            remarkDiv.style.color = 'red';
+                            remarkDiv.style.fontWeight = 'bold';
+                        } else if (remarkText.includes("Fallback AN = Absent")) {
+                            remarkDiv.style.color = 'orange';
+                        } else if (remarkText.includes("Left Early")) {
+                            remarkDiv.style.color = 'blue';
+                        }
+                        remarksCell.appendChild(remarkDiv);
+                    });
+                } else {
+                    remarksCell.textContent = '-';
+                }
+
+                // Append all cells to the row
+                row.appendChild(nameCell);
+                row.appendChild(morningCell);
+                row.appendChild(anCell);
+                row.appendChild(exitCell);
+                row.appendChild(statusCell);
+                row.appendChild(remarksCell);
+                tableBody.appendChild(row);
+            }
+
+            updateSummary(); // Update summary counts after table re-render
+        }
+
+        /**
+         * Loads employee data from Firebase based on selected/assigned Branch and Sub-division.
+         * This function no longer fetches UID for each employee from 'employee_ids' as it's not needed for attendance payload.
+         * @param {string} branchArg - The branch to load employees from.
+         * @param {string} subdivisionArg - The sub-division to load employees from.
+         */
+        async function loadEmployees(branchArg = '', subdivisionArg = '') {
+            const branch = branchArg || (branchSelect?.value || userBranch);
+            const subdivision = subdivisionArg || (subdivisionSelect?.value || userSubdivision);
+            const user = auth.currentUser;
+
+            if (!user) {
+                console.warn("loadEmployees: No authenticated user. Cannot load employees.");
+                displayMessageAndRedirect("Authentication required to load employees.", 2000);
+                return;
+            }
+
+            console.log(`loadEmployees: Resolved Branch: '${branch}', Resolved Sub-division: '${subdivision}'`);
+
+            if (!branch) {
+                console.warn("loadEmployees: No branch selected. Cannot load employees.");
+                showConfirmDialog("⚠️ Please select a branch.");
+                tableBody.innerHTML = "";
+                employees = [];
+                attendanceData = {};
+                updateSummary();
+                return;
+            }
+
+            employees = [];
+            attendanceData = {};
+
+            try {
+                let employeesFromDB = [];
+                const selectedDate = document.getElementById('date-select')?.value
+                    || (new Date()).toISOString().split('T')[0];
+                const [year, month, day] = selectedDate.split("-");
+
+                if (!subdivision || subdivision === "All") {
+                    console.log(`loadEmployees: Loading all subdivisions for branch: ${branch}`);
+                    const subdivisionsSnapshot = await db.ref(`branches/${branch}/subdivisions`).once("value");
+                    const allSubdivisions = subdivisionsSnapshot.val();
+
+                    if (allSubdivisions) {
+                        for (const subKey in allSubdivisions) {
+                            const empRef = db.ref(`branches/${branch}/subdivisions/${subKey}/employees`);
+                            const empSnapshot = await empRef.once("value");
+                            const empData = empSnapshot.val();
+
+                            if (empData) {
+                                Object.entries(empData).forEach(([empId, emp]) => {
+                                    employeesFromDB.push({
+                                        ...emp,
+                                        id: empId,
+                                        subdivision: subKey // 🔑 store subdivision
+                                    });
+                                });
+                                console.log(`loadEmployees: Loaded ${Object.keys(empData).length} employees from subdivision: ${subKey}`);
+                            }
+                        }
+                    }
+
+                } else {
+                    console.log(`loadEmployees: Loading employees for specific subdivision: ${subdivision} under branch: ${branch}`);
+                    const empRef = db.ref(`branches/${branch}/subdivisions/${subdivision}/employees`);
+                    const snapshot = await empRef.once("value");
+                    const empData = snapshot.val();
+
+                    if (empData) {
+                        Object.entries(empData).forEach(([empId, emp]) => {
+                            employeesFromDB.push({
+                                ...emp,
+                                id: empId,
+                                subdivision // 🔑 keep sub
+                            });
+                        });
+                        console.log(`loadEmployees: Loaded ${employeesFromDB.length} employees for subdivision: ${subdivision}`);
+                    }
+                }
+
+                employees = employeesFromDB;
+
+                // 🔹 Initialize & load attendance
+                for (const emp of employees) {
+                    attendanceData[emp.id] = {
+                        morning: false,
+                        morningTime: null,
+                        afternoon: "None",
+                        anTime: null,
+                        anExit: false,
+                        anExitTime: null,
+                        late: false,
+                        morningLocked: false,
+                        anLocked: false,
+                        markedFrom: "home",
+                        defaultTimes: {
+                            morning: new Date(`${selectedDate}T09:00:00`).toISOString(),
+                            afternoon: new Date(`${selectedDate}T13:30:00`).toISOString(),
+                            exit: new Date(`${selectedDate}T17:30:00`).toISOString()
+                        }
+                    };
+
+                    try {
+                        const path = `attendance/${year}/${month}/${day}/${branch}/${emp.subdivision}/${emp.id}`;
+                        const empAttendanceSnapshot = await db.ref(path).once("value");
+                        const saved = empAttendanceSnapshot.val();
+                        if (saved) {
+                            Object.assign(attendanceData[emp.id], {
+                                morning: saved.morning || false,
+                                morningTime: saved.morningTime || null,
+                                afternoon: saved.afternoon || "None",
+                                anTime: saved.anTime || null,
+                                anExit: saved.anExit === true,
+                                anExitTime: saved.anExitTime || null,
+                                late: saved.late || false,
+                                morningLocked: saved.morningLocked === true,
+                                anLocked: saved.anLocked === true
+                            });
+                        }
+                    } catch (err) {
+                        console.warn(`loadEmployees: Could not fetch attendance for ${emp.name} (${emp.id}): ${err.message}`);
+                    }
+                }
+
+                saveBtn.textContent = 'Partial Attendance Loaded ✅';
+                renderAttendanceTable();
+
+            } catch (err) {
+                console.error("🚫 Failed to fetch employee data or saved attendance:", err.message);
+                showConfirmDialog("🚫 Failed to fetch employee data: " + err.message);
+                tableBody.innerHTML = "";
+                employees = [];
+                attendanceData = {};
+                updateSummary();
+            }
+        }
+
+        // ✅ DOM ELEMENT REFERENCES (defined after Firebase init, before DOMContentLoaded)
+        const branchSelect = document.getElementById('branch-select');
+        const subdivisionSelect = document.getElementById('subdivision-select');
+        const loadBtn = document.getElementById('load-btn');
+        const adminPanelBtn = document.getElementById('admin-panel-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const tableBody = document.getElementById('attendance-table-body');
+        const fullDayCount = document.getElementById('full-day-count');
+        const halfDayCount = document.getElementById('half-day-count');
+        // Force Absent count to red before PDF export
+        const absentCountEl = document.getElementById("absent-count");
+        absentCountEl.style.color = "red";
+        absentCountEl.style.fontWeight = "bold";
+
+        const lateCount = document.getElementById('late-count');
+        const saveBtn = document.getElementById('save-btn');
+
+
+        /**
+         * Initializes the application: authenticates the user, loads the header,
+         * sets up UI based on user role, and loads initial data.
+         * This is called after DOMContentLoaded.
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('date-select');
+            if (dateInput) {
+                dateInput.valueAsDate = new Date(); // Default to today
+            }
+        });
+
+        async function loadDistricts() {
+            const districtDropdown = document.getElementById("district-dropdown");
+
+            try {
+                const snap = await db.ref("districts").once("value");
+                const districts = snap.val() || {};
+                districtDropdown.innerHTML = '<option value="">Select District</option>';
+
+                Object.keys(districts).forEach(dName => {
+                    const opt = document.createElement("option");
+                    opt.value = dName;
+                    opt.textContent = dName;
+                    districtDropdown.appendChild(opt);
+                });
+
+                // ❌ Removed event listener — handled in setupDistrictAndBranchDropdowns()
+
+            } catch (err) {
+                console.error("Error loading districts:", err);
+            }
+        }
+
+        function populateBranchesForBranchAdmin(branchesArray) {
+            const branchDropdown = document.getElementById("branch-select");
+            const districtDropdown = document.getElementById("district-dropdown");
+
+            // Hide district dropdown for BranchAdmin
+            districtDropdown.style.display = "none";
+
+            branchDropdown.innerHTML = '<option value="">All</option>';
+
+            if (!branchesArray || branchesArray.length === 0) {
+                console.warn("No branches found for this BranchAdmin");
+                return;
+            }
+
+            if (branchesArray.length === 1) {
+                branchDropdown.value = branchesArray[0];
+                branchDropdown.style.display = "none";
+                loadEmployees(branchesArray[0]);
+            } else {
+                branchesArray.forEach(b => {
+                    const opt = document.createElement("option");
+                    opt.value = b;
+                    opt.textContent = b;
+                    branchDropdown.appendChild(opt);
+                });
+                branchDropdown.style.display = "";
+            }
+        }
+
+
+        async function setupDistrictAndBranchDropdowns(userData) {
+            const districtGroup = document.querySelector('label[for="district-dropdown"]').parentElement;
+            const branchGroup = document.querySelector('label[for="branch-select"]').parentElement;
+            const subdivisionGroup = document.querySelector('label[for="subdivision-select"]').parentElement;
+
+            const districtDropdown = document.getElementById("district-dropdown");
+            const branchDropdown = document.getElementById("branch-select");
+            const subdivisionDropdown = document.getElementById("subdivision-select");
+
+            // Helper to reset dropdown with Select + All
+            function resetDropdown(dropdown, placeholder) {
+                dropdown.innerHTML = `
+        <option value="">${placeholder}</option>
+    `;
+            }
+            function resetDropdownWithoutAll(dropdown, placeholder) {
+                dropdown.innerHTML = `<option value="">${placeholder}</option>`;
+            }
+
+            function resetDropdownWithAll(dropdown, placeholder) {
+                dropdown.innerHTML = `
+        <option value="">${placeholder}</option>
+        <option value="All">All</option>
+    `;
+            }
+
+
+            // Admin / Dev
+            if (userData.role === "Admin" || userData.role === "Dev") {
+                districtGroup.style.display = "block";
+                branchGroup.style.display = "block";
+                subdivisionGroup.style.display = "block";
+
+                try {
+                    const snap = await db.ref("districts").once("value");
+                    const districts = snap.val() || {};
+                    resetDropdown(districtDropdown, "Select District");
+
+                    Object.keys(districts).forEach(dName => {
+                        const opt = document.createElement("option");
+                        opt.value = dName;
+                        opt.textContent = dName;
+                        districtDropdown.appendChild(opt);
+                    });
+
+                    // SINGLE listener for district change
+                    districtDropdown.addEventListener("change", async () => {
+                        const districtName = districtDropdown.value;
+                        resetDropdownWithoutAll(branchDropdown, "Select Branch");
+
+                        if (!districtName) return;
+
+                        if (districtName === "all") {
+                            // Show all branches from all districts
+                            Object.keys(districts).forEach(d => {
+                                const branches = districts[d].branches || {};
+                                Object.keys(branches).forEach(b => {
+                                    const opt = document.createElement("option");
+                                    opt.value = b;
+                                    opt.textContent = `${b} (${d})`;
+                                    branchDropdown.appendChild(opt);
+                                });
+                            });
+                        } else {
+                            const branchSnap = await db.ref(`districts/${districtName}/branches`).once("value");
+                            const branches = branchSnap.val() || {};
+                            Object.keys(branches).forEach(b => {
+                                const opt = document.createElement("option");
+                                opt.value = b;
+                                opt.textContent = b;
+                                branchDropdown.appendChild(opt);
+                            });
+                        }
+                    });
+
+                } catch (err) {
+                    console.error("Error loading districts:", err);
+                }
+                allowedBranches = null;
+
+                // BranchAdmin
+            } else if (userData.role === "BranchAdmin") {
+                districtGroup.style.display = "none";
+                branchGroup.style.display = "block";
+                subdivisionGroup.style.display = "block";
+
+                const branchesArray = Array.isArray(userData.branches)
+                    ? userData.branches
+                    : (userData.branch ? [userData.branch] : []);
+
+                allowedBranches = branchesArray;
+                resetDropdownWithoutAll(branchDropdown, "Select Branch");
+
+                if (branchesArray.length === 0) {
+                    displayMessageAndRedirect("No branches assigned to your account.");
+                    return;
+                }
+                if (branchesArray.length === 1) {
+                    branchDropdown.value = branchesArray[0];
+                    branchGroup.style.display = "none";
+                    loadEmployees(branchesArray[0]);
+                } else {
+                    branchesArray.forEach(b => {
+                        const opt = document.createElement("option");
+                        opt.value = b;
+                        opt.textContent = b;
+                        branchDropdown.appendChild(opt);
+                    });
+                }
+            } else {
+                displayMessageAndRedirect("Your role does not allow access.");
+            }
+        }
+
+
+        function initApp() {
+            console.log("initApp: Starting application initialization...");
+            // ✅ 3. auth.onAuthStateChanged listener: Central point for user session management
+            auth.onAuthStateChanged(user => {
+                console.log("initApp: auth.onAuthStateChanged callback fired. User:", user ? user.uid : "null");
+                if (user) {
+                    // User is signed in. Now check their role and data.
+                    (async () => {
+                        try {
+                            console.log("initApp: Attempting to fetch user data from DB for UID:", user.uid);
+                            // Read rule for `users/$uid` is `auth != null && auth.uid === $uid`
+                            const snapshot = await db.ref("users/" + user.uid).once("value");
+                            const userData = snapshot.val();
+
+                            // ✅ Authorization Check 1: Is user data present in DB?
+                            if (!userData) {
+                                console.warn("❌ initApp: No userData found in Realtime Database for UID:", user.uid, ". Redirecting to index.html.");
+                                displayMessageAndRedirect("No user data found. Redirecting to login.", 1500);
+                                await auth.signOut(); // Ensure user is signed out if data is missing
+                                return;
+                            }
+                            console.log("initApp: Fetched user data for UID:", user.uid, ":", userData);
+                            const actualUserRole = userData.role;
+                            console.log("initApp: User role from DB for UID", user.uid, ":", actualUserRole);
+
+
+                            // ✅ Authorization Check 2: Is user role authorized for home.html?
+                            // This check strictly adheres to the Firebase security rules provided.
+                            const allowedPageRoles = ['Admin', 'Dev', 'BranchAdmin'];
+                            if (!allowedPageRoles.includes(actualUserRole)) {
+                                console.warn(`❌ initApp: User role "${actualUserRole}" is not authorized for this page. Only ${allowedPageRoles.join(', ')} roles can access. Redirecting to index.html.`);
+                                displayMessageAndRedirect("Unauthorized role. Redirecting to login.", 1500);
+                                await auth.signOut(); // Explicitly sign out unauthorized users
+                                return;
+                            }
+
+                            // Load allowed branches based on user role (Admin/Dev = all, BranchAdmin = specific)
+                            await setupDistrictAndBranchDropdowns(userData);
+                            console.log("initApp: allowedBranches loaded:", allowedBranches);
+
+                            // Load header content from header.html
+                            const headerHtml = await fetch("header.html").then(res => res.text());
+                            document.getElementById("header-container").innerHTML = headerHtml;
+                            console.log("initApp: Header loaded.");
+
+                            // Set header user info and styling
+                            const userNameDiv = document.getElementById("user-name");
+                            const branchInfoDiv = document.getElementById("branch-info");
+                            const topBar = document.getElementById("top-bar");
+
+                            if (userNameDiv) userNameDiv.textContent = `${userData.name} (${userData.role})`;
+                            if (branchInfoDiv) branchInfoDiv.textContent = userData.subdivision ? `${userData.branch} - ${userData.subdivision}` : userData.branch;
+                            if (topBar) {
+                                topBar.classList.remove("top-bar-dev", "top-bar-admin", "top-bar-branch");
+                                if (userData.role === "Dev") topBar.classList.add("top-bar-dev");
+                                else if (userData.role === "Admin") topBar.classList.add("top-bar-admin");
+                                else if (userData.role === "BranchAdmin") topBar.classList.add("top-bar-branch");
+                            }
+                            console.log("initApp: Header info and styling set based on user role.");
+
+                            // Setup header buttons (Logs, Admin Panel, Logout)
+                            const logButton = document.getElementById("logs-btn");
+                            const activityLogs = document.getElementById("activity-logs");
+                            if (logButton && activityLogs) {
+                                logButton.addEventListener("click", () => {
+                                    activityLogs.classList.toggle("hidden");
+                                    activityLogs.scrollIntoView({ behavior: "smooth" });
+                                });
+                            }
+
+                            const adminBtn = document.getElementById("admin-panel-btn");
+                            if (adminBtn) {
+                                adminBtn.addEventListener("click", () => {
+                                    if (!window.location.href.includes("admin")) {
+                                        window.location.href = "admin.html";
+                                    }
+                                });
+                                // Hide admin button for BranchAdmin users
+                                if (userData.role === 'BranchAdmin') {
+                                    adminBtn.style.display = 'none';
+                                } else {
+                                    adminBtn.style.display = 'inline-block';
+                                }
+                            }
+
+                            const logoutBtnHeader = document.getElementById("logout-btn");
+                            if (logoutBtnHeader) {
+                                logoutBtnHeader.addEventListener('click', async () => {
+                                    const confirmLogout = await showConfirmDialog("Are you sure you want to log out?");
+                                    if (confirmLogout) {
+                                        auth.signOut().then(() => {
+                                            displayMessageAndRedirect("Logging out...", 1000);
+                                        }).catch(error => {
+                                            showConfirmDialog("❌ Error during logout: " + error.message);
+                                        });
+                                    }
+                                });
+                            }
+                            console.log("initApp: Header buttons and event listeners set.");
+
+                            // Final role-based UI setup and data loading
+                            currentUser = userData; // Set global current user data
+                            userRole = userData.role;
+                            isDevOrAdmin = userRole === 'Admin' || userRole === 'Dev';
+
+
+                            // Attempt to get userBranch from 'branch' field or the first element of 'branches' array
+                            userBranch = userData.branch || (Array.isArray(userData.branches) && userData.branches.length > 0 ? userData.branches[0] : '');
+                            userSubdivision = userData.subdivision || ''; // Still relies on userData.subdivision
+
+                            console.log(`initApp: Determined userBranch: '${userBranch}', userSubdivision: '${userSubdivision}'`);
+
+
+                            if (userRole === 'Admin' || userRole === 'Dev') {
+                                document.getElementById('controls-section').style.display = 'flex';
+                                loadDistricts();
+
+                                // For Admin/Dev, if a branch is pre-selected, load employees.
+                                // If no subdivision is pre-selected, it means 'All Sub-divisions' for that branch.
+                                // In this case, attendance data won't be pre-filled due to strict rules.
+                                if (userBranch) {
+                                    loadEmployees(userBranch, userSubdivision);
+                                } else {
+                                    // If no branch is pre-selected, load all employees (this will fetch all subdivisions)
+                                    // Attendance data will not be pre-filled due to strict rules.
+                                    loadEmployees();
+                                }
+                            } else if (userRole === 'BranchAdmin') {
+                                document.getElementById('controls-section')?.style.setProperty("display", "flex");
+                                console.log("initApp: BranchAdmin role. Showing controls and enabling selection.");
+
+                                populateBranchesForBranchAdmin(userData.branches);// Populate branch dropdown
+
+                                if (userBranch && branchSelect) {
+                                    branchSelect.value = userBranch;
+                                    const event = new Event('change');
+                                    branchSelect.dispatchEvent(event); // Trigger change to populate subdivisions
+
+                                    if (userSubdivision && subdivisionSelect) {
+                                        subdivisionSelect.value = userSubdivision;
+                                        // If both branch and subdivision are pre-set, load employees immediately
+                                        loadEmployees(userBranch, userSubdivision);
+                                    } else {
+                                        // If only branch is pre-set but no subdivision,
+                                        // do NOT auto-load all employees. Wait for user selection.
+                                        console.log("initApp: BranchAdmin user has a branch but no default subdivision. User must select subdivision.");
+                                        // The dispatchEvent above should have populated the subdivision dropdown.
+                                        // No loadEmployees() call here.
+                                    }
+
+                                } else {
+                                    console.warn("⚠️ initApp: BranchAdmin user has no default branch to pre-select. User must select manually.");
+                                    if (!triggeredByAutoSave) {
+                                        showConfirmDialog("Please select a Branch and Sub-division, then click 'Load Employees'.");
+                                    }
+                                }
+
+                                branchSelect.removeAttribute('disabled');
+                                subdivisionSelect.removeAttribute('disabled');
+                            } else {
+                                console.warn(`❌ initApp: Unexpected user role '${userRole}'. Redirecting to index.html.`);
+                                displayMessageAndRedirect("Unknown user role. Redirecting to login.", 1500);
+                                await auth.signOut();
+                                return;
+                            }
+
+                        } catch (err) {
+                            console.error("💥 Error in initApp during user data processing or UI setup:", err.message, err);
+                            setTimeout(async () => {
+                                displayMessageAndRedirect("Application error. Redirecting to login.", 1500);
+                                await auth.signOut();
+                            }, 500);
+                        }
+                    })();
+                } else {
+                    console.warn("HOME.HTML: 🔁 No active user detected by onAuthStateChanged. Redirecting to index.html...");
+                    displayMessageAndRedirect("No active user session. Redirecting to login.", 1500);
+                }
+            });
+        }
+
+        /**
+         * Populates the Branch dropdown for Admin/Dev users based on available branches
+         * and their allowed branches.
+         */
+        function populateBranchDropdown() {
+            console.log("populateBranchDropdown: Fetching branches from DB.");
+            const user = auth.currentUser;
+            if (!user) {
+                console.warn("populateBranchDropdown: No authenticated user. Cannot populate branches.");
+                return;
+            }
+
+            try {
+                const ref = db.ref("branches");
+                ref.once("value").then(snapshot => {
+                    const allBranches = snapshot.val();
+                    console.log("🔥 Step 1: Raw branches snapshot:", allBranches);
+                    console.log("🔥 Step 2: Current userRole:", userRole);
+                    console.log("🔥 Step 3: allowedBranches:", allowedBranches);
+
+                    const filteredBranches = {};
+                    if (!allBranches) {
+                        console.warn("No branches found in database.");
+                        return;
+                    }
+
+                    for (const branchName in allBranches) {
+                        // If allowedBranches is null, it means unrestricted (Admin/Dev)
+                        // If userRole is BranchAdmin, ensure the branch is in their allowedBranches array
+                        const isAllowed =
+                            allowedBranches === null ||
+                            (userRole === 'BranchAdmin' && allowedBranches.map(b => b.toLowerCase()).includes(branchName.toLowerCase()));
+
+                        if (isAllowed || userRole === 'Admin' || userRole === 'Dev') { // Admin/Dev can see all
+                            filteredBranches[branchName] = allBranches[branchName];
+                        }
+                    }
+
+                    // For BranchAdmin users, if allowedBranches is not null, only populate their assigned branches
+                    if (userRole === 'BranchAdmin' && allowedBranches !== null) {
+                        branchSelect.innerHTML = `<option value="">Select Branch</option>`; // Clear existing
+                        allowedBranches.forEach(branchName => {
+                            if (allBranches[branchName]) { // Ensure the branch actually exists in 'branches' node
+                                const opt = document.createElement("option");
+                                opt.value = branchName;
+                                opt.textContent = capitalize(branchName);
+                                branchSelect.appendChild(opt);
+                            }
+                        });
+                    } else { // For Admin/Dev or if BranchAdmin user has no specific branches defined (shouldn't happen with current logic)
+                        branchSelect.innerHTML = `<option value="">Select Branch</option>`;
+                        for (let branch in filteredBranches) {
+                            const opt = document.createElement("option");
+                            opt.value = branch;
+                            opt.textContent = capitalize(branch);
+                            branchSelect.appendChild(opt);
+                        }
+                    }
+
+                    console.log("populateBranchDropdown: Branches populated.");
+                }).catch(err => {
+                    console.error("❌ Error populating branch dropdown (Promise catch):", err.message);
+                    if (err.code === 'PERMISSION_DENIED') {
+                        showConfirmDialog("❌ Access denied to branch data. Please check your permissions.");
+                    } else {
+                        showConfirmDialog("❌ Error loading branches: " + err.message);
+                    }
+                });
+            } catch (error) {
+                console.error("❌ Error in populateBranchDropdown (try-catch):", error.message);
+            }
+        }
+
+
+        // Event listener for Branch dropdown change to populate Sub-division dropdown
+        branchSelect.addEventListener('change', () => {
+            const selectedBranch = branchSelect.value;
+            console.log("Branch selected:", selectedBranch);
+
+            subdivisionSelect.innerHTML = `<option value="">All</option>`;
+            subdivisionSelect.disabled = true; // Reset and disable always
+
+            if (!selectedBranch) {
+                console.log("No branch selected, disabling subdivision dropdown.");
+                return;
+            }
+            const user = auth.currentUser;
+            if (!user) {
+                console.warn("Branch select change: No authenticated user. Cannot load subdivisions.");
+                return;
+            }
+
+            try {
+                // Read rule for `branches/$branch/subdivisions` is `auth != null`
+                db.ref(`branches/${selectedBranch}/subdivisions`).once("value").then(snapshot => {
+                    const subdivisions = snapshot.val();
+                    if (!subdivisions) {
+                        console.warn("⚠️ No subdivisions found for selected branch:", selectedBranch);
+                        showConfirmDialog("⚠️ No subdivisions found for selected branch.");
+                        return;
+                    }
+
+                    for (let sub in subdivisions) {
+                        const opt = document.createElement("option");
+                        opt.value = sub;
+                        opt.textContent = capitalize(sub);
+                        subdivisionSelect.appendChild(opt);
+                    }
+
+                    subdivisionSelect.disabled = false;
+
+                    // If userSubdivision is empty (null/undefined), auto-select the first one
+                    // This is for cases where a BranchAdmin user logs in and we want to show a default subdivision
+                    // if they don't have one specified in their profile, but still allow them to change.
+                    if (userRole === 'BranchAdmin' && !userSubdivision && Object.keys(subdivisions).length > 0) {
+                        subdivisionSelect.selectedIndex = 1; // Select the first actual subdivision
+                        // Do NOT trigger loadEmployees here, as initApp already handles the initial load for BranchAdmin users
+                    } else if (userSubdivision) {
+                        subdivisionSelect.value = userSubdivision;
+                    }
+
+                }).catch(err => {
+                    console.error("❌ Error loading subdivisions (Promise catch):", err.message);
+                    if (err.code === 'PERMISSION_DENIED') {
+                        showConfirmDialog("❌ Access denied to subdivision data. Please check your permissions.");
+                    } else {
+                        showConfirmDialog("❌ Error loading subdivisions: " + err.message);
+                    }
+                });
+            } catch (error) {
+                console.error("❌ Error in branchSelect change listener (try-catch):", error.message);
+            }
+
+        });
+
+        // Event listener for Load Employees Button
+        loadBtn.addEventListener("click", () => {
+            console.log("Load Employees button clicked.");
+            loadEmployees();
+        });
+
+
+        // Event listener for Save Attendance Button
+        saveBtn.addEventListener('click', async (e) => {
+            const isAuto = triggeredByAutoSave;
+            triggeredByAutoSave = false;
+            console.log("Save button clicked. Is auto-save:", isAuto);
+
+            const user = auth.currentUser;
+            if (!user) {
+                console.warn("Save: No authenticated user. Cannot save attendance.");
+                displayMessageAndRedirect("Authentication required to save attendance.", 2000);
+                return;
+            }
+
+            if (!isAuto) {
+                const confirmSave = await showConfirmDialog("Do you want to save this attendance?");
+                if (!confirmSave) {
+                    console.log("Save cancelled by user.");
+                    return;
+                }
+            }
+
+            const branch = branchSelect?.value || userBranch;
+            const subdivision = subdivisionSelect?.value || userSubdivision;
+            if (!branch) {
+                console.warn("⚠️ Save: Branch not selected.");
+                if (!isAuto) {
+                    showConfirmDialog("⚠️ Please select branch to save attendance.");
+                }
+                return;
+            }
+
+            const selectedDate = document.getElementById('date-select')?.value || (new Date()).toISOString().split('T')[0];
+            const [year, month, day] = selectedDate.split("-");
+
+            const attendancePayload = {};
+            let saveCount = 0;
+            let currentUserEmpId = currentUser.id;
+
+            for (let emp of employees) {
+                const data = attendanceData[emp.id];
+                const status = calculateStatus(data);
+
+                // 🚫 Skip empty rows
+                if (
+                    data.morning === false &&
+                    (data.afternoon === undefined || data.afternoon === 'None') &&
+                    data.anExit === false &&
+                    !data.morningLocked &&
+                    !data.anLocked
+                ) {
+                    continue;
+                }
+
+                const payload = {
+                    name: emp.name,
+                    morning: data.morning,
+                    morningTime: data.morningTime,
+                    afternoon: data.afternoon || 'None',
+                    anTime: data.anTime,
+                    anExit: data.anExit,
+                    anExitTime: data.anExitTime,
+                    late: status.remarks.includes("LATE COMING"),
+                    morningLocked: data.morning === true || data.morningLocked,
+                    anLocked: (data.afternoon === 'Enters' || data.afternoon === 'Leaves') || data.anLocked,
+                    timestamp: (new Date()).toISOString(),
+                };
+
+                attendanceData[emp.id].defaultTimes = {
+                    morning: new Date(`${selectedDate}T09:00:00`).toISOString(),
+                    afternoon: new Date(`${selectedDate}T13:30:00`).toISOString(),
+                    exit: new Date(`${selectedDate}T15:30:00`).toISOString()
+                };
+
+                // 🔑 Path depends on employee subdivision
+                const targetPath = `attendance/${year}/${month}/${day}/${branch}/${emp.subdivision}`;
+
+                if (isDevOrAdmin || userRole === 'BranchAdmin' || emp.id === currentUserEmpId) {
+                    if (!attendancePayload[targetPath]) attendancePayload[targetPath] = {};
+                    attendancePayload[targetPath][emp.id] = payload;
+                    saveCount++;
+                } else {
+                    console.warn(`Save: Skipping employee ${emp.name} (${emp.id}).`);
+                }
+
+                attendanceData[emp.id].morningLocked = payload.morningLocked;
+                attendanceData[emp.id].anLocked = payload.anLocked;
+            }
+
+            if (saveCount === 0) {
+                if (!isAuto) {
+                    showConfirmDialog("⚠️ No new entries to save or no authorized entries to save.");
+                }
+                return;
+            }
+
+            try {
+                // 🔹 Bulk save across subdivisions
+                const updates = {};
+                for (const [path, data] of Object.entries(attendancePayload)) {
+                    updates[path] = data;
+                }
+                await db.ref().update(updates);
+
+                renderAttendanceTable();
+                if (!isAuto) {
+                    showConfirmDialog("✅ Attendance saved successfully!");
+                } else {
+                    saveBtn.textContent = 'Auto-Saved ✅';
+                }
+            } catch (err) {
+                console.error("❌ Error saving attendance data:", err.message);
+                if (err.code === 'PERMISSION_DENIED') {
+                    showConfirmDialog("❌ Access denied to save attendance.");
+                } else {
+                    showConfirmDialog("❌ Error saving data: " + err.message);
+                }
+            }
+        });
+
+
+        // ✅ 7. DOMContentLoaded: Ensures the DOM is fully loaded before initializing the app.
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOMContentLoaded: DOM is ready. Calling initApp().");
+            initApp(); // Authenticate and Setup UI
+
+            // Set up a single interval for both clock update and auto-save logic
+            setInterval(async () => {
+                updateClock(); // Update clock display
+
+                // Auto Save after 3 PM
+                const now = new Date();
+                const isAfter3PM = now.getHours() > 15 || (now.getHours() === 15 && now.getMinutes() >= 0); // 15:00 is 3 PM
+
+                const today = now.toISOString().split('T')[0];
+                const lastAutoSaveDate = localStorage.getItem('lastAutoSaveDate');
+
+                // Only auto-save once per day after 3 PM
+                if (isAfter3PM && lastAutoSaveDate !== today) {
+                    const saveButtonElement = document.getElementById('save-btn');
+                    if (saveButtonElement) {
+                        const hasEntriesToSave = employees.some(emp => {
+                            const data = attendanceData[emp.id];
+                            // Check if there's any data marked or changed that needs saving
+                            return data.morning || (data.afternoon && data.afternoon !== "None") || data.anExit;
+                        });
+
+                        if (hasEntriesToSave) {
+                            triggeredByAutoSave = true; // Mark auto-trigger
+                            console.log("Auto-save triggered at 3PM.");
+                            saveButtonElement.click(); // Trigger save button click
+                            localStorage.setItem('lastAutoSaveDate', today); // Mark as auto-saved for today
+                            autoSavedAfter3 = true; // Prevent multiple auto-saves within the same session
+                        } else {
+                            localStorage.setItem('lastAutoSaveDate', today); // Still mark, so it doesn't try again today
+                            console.log("No data to save for auto-save. Skipped.");
+                        }
+                    }
+                }
+                // Re-render table if employees are loaded to update status/disabling based on time
+                if (employees.length > 0) {
+                    renderAttendanceTable();
+                }
+            }, 1000); // Tick every second for clock and auto-save check
+        });
+    </script>
+    <script>
+        document.addEventListener("contextmenu", function (e) {
+            e.preventDefault();
+        });
+    </script>
+    <script>
+        document.addEventListener("keydown", function (e) {
+            // Block F12
+            //  if (e.key === "F12") {
+            //      e.preventDefault();
+            //  }
+
+            // Block Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+U / Ctrl+S / Ctrl+P
+            if (
+                (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C")) ||
+                (e.ctrlKey && (e.key === "U" || e.key === "S" || e.key === "P"))
+            ) {
+                e.preventDefault();
+            }
+        });
+    </script>
+
+</body>
+
+</html>
